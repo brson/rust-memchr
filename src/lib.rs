@@ -594,8 +594,12 @@ pub mod avx2 {
             if i < len {
 
                 let align_mask = 32 - 1;
+                println!("{:064b}\n{:064b}", align_mask, p.offset(i) as usize);
                 let overalignment = (p.offset(i) as usize & align_mask) as isize;
                 i -= overalignment;
+
+                println!("{} {} {}", i, len, overalignment);
+                println!("{:064b}", p.offset(i) as usize);
 
                 let o = i + 0;
                 let x = _mm256_load_si256(p.offset(o) as *const __m256i);
@@ -603,13 +607,15 @@ pub mod avx2 {
                 let z = _mm256_movemask_epi8(r);
                 let garbage_mask = {
                     debug_assert!(overalignment < 32);
-                    let max_hi_bytes = ::std::cmp::min(len - i + overalignment, 31);
+                    let max_hi_bytes = ::std::cmp::min(len - (i + overalignment), 31);
+                    println!("maxhi {}", max_hi_bytes);
                     let ones = u32::max_value();
                     let mask = ones << max_hi_bytes;
                     let mask = !mask;
                     let mask = mask << overalignment;
                     mask as i32
                 };
+                println!("mask {:064b}", garbage_mask);
                 let z = z & garbage_mask;
                 if z != 0 {
                     return off(o, z);
@@ -619,11 +625,12 @@ pub mod avx2 {
 
                 if i >= len {
                     if cfg!(debug) || cfg!(test) {
-                        i += len - i + overalignment;
+                        i += overalignment;
+                        i += len - i;
                     }
 
                     debug_assert_eq!(i, len);
-
+                    println!("terminating");
                     return None;
                 }
 
