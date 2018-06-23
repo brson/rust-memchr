@@ -2,7 +2,7 @@
 This crate defines two functions, `memchr` and `memrchr`, which expose a safe
 interface to the corresponding functions in `libc`.
 */
-
+#![feature(core_intrinsics)]
 #![deny(missing_docs)]
 #![allow(unused_imports)]
 #![doc(html_root_url = "https://docs.rs/memchr/2.0.0")]
@@ -410,10 +410,2797 @@ pub fn memchr3(
     slow(needle1, needle2, needle3, &haystack[i..]).map(|pos| i + pos)
 }
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[allow(missing_docs)]
+pub mod avx2 {
+    #[cfg(all(feature = "use_std", target_arch = "x86_64"))]
+    use std::arch::x86_64::*;
+    #[cfg(all(not(feature = "use_std"), target_arch = "x86_64"))]
+    use core::arch::x86_64::*;
+    #[cfg(all(feature = "use_std", target_arch = "x86"))]
+    use std::arch::x86::*;
+    #[cfg(all(not(feature = "use_std"), target_arch = "x86"))]
+    use core::arch::x86::*;
+
+    #[inline(always)]
+    pub fn memchr_unsafe(needle: u8, haystack: &[u8]) -> Option<usize> {
+        unsafe { memchr(needle, haystack) }
+    }
+
+    #[target_feature(enable = "avx2")]
+    pub unsafe fn memchr(needle: u8, haystack: &[u8]) -> Option<usize> {
+        use std::intrinsics::{likely, unlikely, cttz_nonzero};
+
+        if haystack.is_empty() { return None }
+
+        let p: *const u8 = haystack.as_ptr();
+        let len = haystack.len() as isize;
+
+        let mut i = 0;
+
+        let q = _mm256_set1_epi8(needle as i8);
+
+        #[inline]
+        unsafe fn off(offset: isize, bitmask: i32) -> Option<usize> {
+            Some((offset + cttz_nonzero(bitmask) as isize) as usize)
+        }
+
+        // Config options.
+
+        // Doing unaligned loads really doesn't affect perf on AVX2
+        let align = false;
+        let simple_core = true;
+
+        // TODO: Compare aligned perf to unaligned perf and move
+        // this to the final step if they are the same.
+        if align {
+            let align_mask = 32 - 1;
+            let overalignment = (p as usize & align_mask) as isize;
+            let aligned = overalignment == 0;
+
+            if !aligned {
+                i -= overalignment;
+                let o = i + 0;
+                let x = _mm256_load_si256(p.offset(o) as *const __m256i);
+                let r = _mm256_cmpeq_epi8(x, q);
+                let z = _mm256_movemask_epi8(r);
+                let garbage_mask = {
+                    debug_assert!(overalignment < 32);
+                    let max_hi_bytes = ::std::cmp::min(len, 31);
+                    let ones = u32::max_value();
+                    let mask = ones << max_hi_bytes;
+                    let mask = !mask;
+                    let mask = mask << overalignment;
+                    mask as i32
+                };
+                let z = z & garbage_mask;
+                if z != 0 {
+                    return off(o, z);
+                }
+
+                i += 32;
+
+                if i >= len {
+                    return None;
+                }
+
+                if i + 32 > len {
+                    let o = i + 0;
+                    let x = _mm256_load_si256(p.offset(o) as *const __m256i);
+                    let r = _mm256_cmpeq_epi8(x, q);
+                    let z = _mm256_movemask_epi8(r);
+                    let extra_bytes = o as usize + 32 - len as usize;
+                    let garbage_mask = {
+                        let ones = u32::max_value();
+                        let mask = ones << (32 - extra_bytes);
+                        let mask = !mask;
+                        mask as i32
+                    };
+                    let z = z & garbage_mask;
+                    if z != 0 {
+                        return off(o, z);
+                    }
+
+                    if cfg!(debug) || cfg!(test) {
+                        i += 32 - extra_bytes as isize;
+                    }
+
+                    debug_assert_eq!(i, len);
+
+                    return None;
+                }
+            }
+        }
+
+        #[inline]
+        #[target_feature(enable = "avx2")]
+        unsafe fn load(p: *const u8, o: isize, align: bool) -> __m256i {
+            if align {
+                _mm256_load_si256(p.offset(o) as *const __m256i)
+            } else {
+                _mm256_loadu_si256(p.offset(o) as *const __m256i)
+            }
+        }
+
+        #[inline]
+        #[target_feature(enable = "avx2")]
+        unsafe fn cmp(q: __m256i, p: *const u8, i: isize, o: isize,
+                      align: bool) -> Option<usize> {
+            let o = i + o;
+            let x = load(p, o, align);
+            let r = _mm256_cmpeq_epi8(x, q);
+            let z = _mm256_movemask_epi8(r);
+            if z != 0 {
+                return off(o, z);
+            }
+            None
+        }
+
+        // TODO consider stream_load
+        // consider testc_si256 / testnzc_si256 / testz
+        if simple_core {
+            while i + 128 <= len {
+                if let Some(r) = None
+                    .or_else(|| cmp(q, p, i, 0, align))
+                    .or_else(|| cmp(q, p, i, 32, align))
+                    .or_else(|| cmp(q, p, i, 64, align))
+                    .or_else(|| cmp(q, p, i, 96, align))
+                {
+                    return Some(r);
+                }
+
+                i += 128;
+            }
+        } else {
+            while i + 128 <= len {
+
+
+
+                i += 128;
+            }
+        }
+
+        while i + 32 <= len  {
+            if let Some(r) = cmp(q, p, i, 0, align) {
+                return Some(r);
+            }
+
+            i += 32;
+        }
+
+        if align {
+            if i < len {
+                let o = i + 0;
+                let x = _mm256_load_si256(p.offset(o) as *const __m256i);
+                let r = _mm256_cmpeq_epi8(x, q);
+                let z = _mm256_movemask_epi8(r);
+                let extra_bytes = o as usize + 32 - len as usize;
+                let garbage_mask = {
+                    let ones = u32::max_value();
+                    let mask = ones << (16 - extra_bytes);
+                    let mask = !mask;
+                    mask as i32
+                };
+                let z = z & garbage_mask;
+                if z != 0 {
+                    return off(o, z);
+                }
+
+                if cfg!(debug) || cfg!(test) {
+                    i += 32 - (extra_bytes as isize);
+                }
+            }
+        } else /* !align */ {
+            if i < len {
+                let align_mask = 32 - 1;
+                let overalignment = (p.offset(i) as usize & align_mask) as isize;
+                i -= overalignment;
+
+                let o = i + 0;
+                let x = _mm256_load_si256(p.offset(o) as *const __m256i);
+                let r = _mm256_cmpeq_epi8(x, q);
+                let z = _mm256_movemask_epi8(r);
+                let garbage_mask = {
+                    debug_assert!(overalignment < 32);
+                    let max_hi_bytes = ::std::cmp::min(len - i + overalignment, 31);
+                    let ones = u32::max_value();
+                    let mask = ones << max_hi_bytes;
+                    let mask = !mask;
+                    let mask = mask << overalignment;
+                    mask as i32
+                };
+                let z = z & garbage_mask;
+                if z != 0 {
+                    return off(o, z);
+                }
+
+                i += 32;
+
+                if i >= len {
+                    if cfg!(debug) || cfg!(test) {
+                        i += len - i + overalignment;
+                    }
+
+                    debug_assert_eq!(i, len);
+
+                    return None;
+                }
+
+                if i + 32 > len {
+                    let o = i + 0;
+                    let x = _mm256_load_si256(p.offset(o) as *const __m256i);
+                    let r = _mm256_cmpeq_epi8(x, q);
+                    let z = _mm256_movemask_epi8(r);
+                    let extra_bytes = o as usize + 32 - len as usize;
+                    let garbage_mask = {
+                        let ones = u32::max_value();
+                        let mask = ones << (32 - extra_bytes);
+                        let mask = !mask;
+                        mask as i32
+                    };
+                    let z = z & garbage_mask;
+                    if z != 0 {
+                        return off(o, z);
+                    }
+
+                    if cfg!(debug) || cfg!(test) {
+                        i += 32 - extra_bytes as isize;
+                    }
+                }
+            }
+        }
+
+        debug_assert_eq!(i, len);
+
+        None
+    }
+
+    #[inline(always)]
+    pub fn memrchr_unsafe(needle: u8, haystack: &[u8]) -> Option<usize> {
+        unsafe { memrchr(needle, haystack) }
+    }
+
+    pub unsafe fn memrchr(needle: u8, haystack: &[u8]) -> Option<usize> {
+        ::fallback::memrchr(needle, haystack)
+    }
+}
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[allow(missing_docs)]
+pub mod sse {
+    #[cfg(all(feature = "use_std", target_arch = "x86_64"))]
+    use std::arch::x86_64::*;
+    #[cfg(all(not(feature = "use_std"), target_arch = "x86_64"))]
+    use core::arch::x86_64::*;
+    #[cfg(all(feature = "use_std", target_arch = "x86"))]
+    use std::arch::x86::*;
+    #[cfg(all(not(feature = "use_std"), target_arch = "x86"))]
+    use core::arch::x86::*;
+
+    #[inline(always)]
+    pub fn memchr_unsafe(needle: u8, haystack: &[u8]) -> Option<usize> {
+        unsafe { memchr(needle, haystack) }
+    }
+
+    #[inline(always)]
+    pub unsafe fn memchr(needle: u8, haystack: &[u8]) -> Option<usize> {
+        memchr_basic_unrolled_align15(needle, haystack)
+    }
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_basic(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+
+        while i.offset(16) <= end {
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+
+            i = i.offset(16);
+        }
+
+        while i < end {
+            if *i == needle {
+                return Some(i as usize - start as usize);
+            }
+            i = i.offset(1);
+        }
+
+        None
+    }
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_basic_unrolled(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+
+        while i.offset(64) <= end {
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        if i.offset(48) <= end {
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        } else if i.offset(32) <= end {
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        } else if i.offset(16) <= end {
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        while i < end {
+            if *i == needle {
+                return Some(i as usize - start as usize);
+            }
+            i = i.offset(1);
+        }
+
+        None
+    }
+
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_more(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+        
+        while i.offset(16) <= end {
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+
+            i = i.offset(16);
+        }
+
+        if i < end {
+            if (end as usize - start as usize) < 16 {
+                while i < end {
+                    if *i == needle {
+                        return Some(i as usize - start as usize);
+                    }
+                    i = i.offset(1);
+                }
+            } else {
+                i = end.offset(-16);
+                let x = _mm_lddqu_si128(i as *const __m128i);
+                let r = _mm_cmpeq_epi8(x, q);
+                let z = _mm_movemask_epi8(r);
+                if z != 0 {
+                    return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+                }
+            }
+        }
+
+        None
+    }
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_more_unrolled(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+
+        while i.offset(64) <= end {
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        if i.offset(48) <= end {
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        } else if i.offset(32) <= end {
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        } else if i.offset(16) <= end {
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        if i < end {
+            if (end as usize - start as usize) < 16 {
+                while i < end {
+                    if *i == needle {
+                        return Some(i as usize - start as usize);
+                    }
+                    i = i.offset(1);
+                }
+            } else {
+                i = end.offset(-16);
+                let x = _mm_lddqu_si128(i as *const __m128i);
+                let r = _mm_cmpeq_epi8(x, q);
+                let z = _mm_movemask_epi8(r);
+                if z != 0 {
+                    return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+                }
+            }
+        }
+
+        None
+    }
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_more_unrolled_align(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+
+        // sse performs better with properly aligned data, so let's work through the
+        // initial bytes until we reach an alignment
+        let is_aligned = (i as usize).trailing_zeros() >= 4;
+        if !is_aligned && i.offset(16) <= end {
+            // First do an unaligned simd search
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+
+            // The least-significant 4 bytes of an address must be zeroed to be alinged
+            let align_mask: usize = !0b1111;
+            i = (i as usize & align_mask) as *const _;
+            // Now i is aligned, everything before it is scanned (and some after it).
+        }        
+
+        while i.offset(64) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        if i.offset(48) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        } else if i.offset(32) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        } else if i.offset(16) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        if i < end {
+            if (end as usize - start as usize) < 16 {
+                while i < end {
+                    if *i == needle {
+                        return Some(i as usize - start as usize);
+                    }
+                    i = i.offset(1);
+                }
+            } else {
+                i = end.offset(-16);
+                let x = _mm_lddqu_si128(i as *const __m128i);
+                let r = _mm_cmpeq_epi8(x, q);
+                let z = _mm_movemask_epi8(r);
+                if z != 0 {
+                    return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+                }
+            }
+        }
+
+        None
+    }
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_basic_unrolled_align(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+
+        // sse performs better with properly aligned data, so let's work through the
+        // initial bytes until we reach an alignment
+        let is_aligned = (i as usize).trailing_zeros() >= 4;
+        if !is_aligned && i.offset(16) <= end {
+            // First do an unaligned simd search
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+
+            // The least-significant 4 bytes of an address must be zeroed to be aligned
+            let align_mask: usize = !0b1111;
+            i = (i as usize & align_mask) as *const _;
+            // Now i is aligned, everything before it is scanned (and maybe some after it).
+        }        
+
+        while i.offset(64) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        if i.offset(48) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        } else if i.offset(32) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        } else if i.offset(16) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        while i < end {
+            if *i == needle {
+                return Some(i as usize - start as usize);
+            }
+            i = i.offset(1);
+        }
+
+        None
+    }
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_basic_unrolled_align2(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+
+        // sse performs better with properly aligned data, so let's work through the
+        // initial bytes until we reach an alignment
+        let is_aligned = (i as usize).trailing_zeros() >= 4;
+        if !is_aligned && i.offset(16) <= end {
+            // First do an unaligned simd search
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+
+            // The least-significant 4 bytes of an address must be zeroed to be aligned
+            let align_mask: usize = !0b1111;
+            i = (i as usize & align_mask) as *const _;
+            // Now i is aligned, everything before it is scanned (and maybe some after it).
+        }        
+
+        while i.offset(64) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        while i.offset(16) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        while i < end {
+            if *i == needle {
+                return Some(i as usize - start as usize);
+            }
+            i = i.offset(1);
+        }
+
+        None
+    }
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_basic_unrolled_align3(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+
+        // sse performs better with properly aligned data, so let's work through the
+        // initial bytes until we reach an alignment
+        let is_aligned = (i as usize).trailing_zeros() >= 4;
+        if !is_aligned && i.offset(16) <= end {
+            // First do an unaligned simd search
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+
+            // The least-significant 4 bytes of an address must be zeroed to be aligned
+            let align_mask: usize = !0b1111;
+            i = (i as usize & align_mask) as *const _;
+            // Now i is aligned, everything before it is scanned (and maybe some after it).
+        }        
+
+        while i.offset(64) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            let x = _mm_load_si128(i.offset(16) as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(16 + i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            let x = _mm_load_si128(i.offset(32) as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(32 + i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            let x = _mm_load_si128(i.offset(48) as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(48 + i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(64);
+        }
+
+        while i.offset(16) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        while i < end {
+            if *i == needle {
+                return Some(i as usize - start as usize);
+            }
+            i = i.offset(1);
+        }
+
+        None
+    }
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_basic_unrolled_align4(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+
+        // sse performs better with properly aligned data, so let's work through the
+        // initial bytes until we reach an alignment
+        let is_aligned = (i as usize).trailing_zeros() >= 4;
+        if !is_aligned && i.offset(16) <= end {
+            // First do an unaligned simd search
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+
+            // The least-significant 4 bytes of an address must be zeroed to be aligned
+            let align_mask: usize = !0b1111;
+            i = (i as usize & align_mask) as *const _;
+            // Now i is aligned, everything before it is scanned (and maybe some after it).
+        }        
+
+        while i.offset(128) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            let x = _mm_load_si128(i.offset(16) as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(16 + i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            let x = _mm_load_si128(i.offset(32) as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(32 + i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            let x = _mm_load_si128(i.offset(48) as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(48 + i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            let x = _mm_load_si128(i.offset(64) as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(64 + i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            let x = _mm_load_si128(i.offset(80) as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(80 + i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            let x = _mm_load_si128(i.offset(96) as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(96 + i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            let x = _mm_load_si128(i.offset(112) as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(112 + i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(128);
+        }
+
+        while i.offset(16) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        while i < end {
+            if *i == needle {
+                return Some(i as usize - start as usize);
+            }
+            i = i.offset(1);
+        }
+
+        None
+    }
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_basic_unrolled_align5(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+
+        // sse performs better with properly aligned data, so let's work through the
+        // initial bytes until we reach an alignment
+        let is_aligned = (i as usize).trailing_zeros() >= 4;
+        if !is_aligned && i.offset(16) <= end {
+            // First do an unaligned simd search
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+
+            // The least-significant 4 bytes of an address must be zeroed to be aligned
+            let align_mask: usize = !0b1111;
+            i = (i as usize & align_mask) as *const _;
+            // Now i is aligned, everything before it is scanned (and maybe some after it).
+        }        
+
+        while i.offset(64) <= end {
+            let x0 = _mm_load_si128(i as *const __m128i);
+            let x1 = _mm_load_si128(i.offset(16) as *const __m128i);
+            let x2 = _mm_load_si128(i.offset(32) as *const __m128i);
+            let x3 = _mm_load_si128(i.offset(48) as *const __m128i);
+
+            let r0 = _mm_cmpeq_epi8(x0, q);
+            let r1 = _mm_cmpeq_epi8(x1, q);
+            let r2 = _mm_cmpeq_epi8(x2, q);
+            let r3 = _mm_cmpeq_epi8(x3, q);
+
+            let m0 = _mm_max_epu8(r0, r1);
+            let m1 = _mm_max_epu8(r2, r3);
+            let m = _mm_max_epu8(m0, m1);
+
+            let m = _mm_movemask_epi8(m);
+
+            if m != 0 {
+                let z = _mm_movemask_epi8(r0);
+                if z != 0 {
+                    return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = _mm_movemask_epi8(r1);
+                if z != 0 {
+                    return Some(16 + i as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = _mm_movemask_epi8(r2);
+                if z != 0 {
+                    return Some(32 + i as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = _mm_movemask_epi8(r3);
+                if z != 0 {
+                    return Some(48 + i as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                // unreachable
+            }
+            i = i.offset(64);
+        }
+
+        while i.offset(16) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        while i < end {
+            if *i == needle {
+                return Some(i as usize - start as usize);
+            }
+            i = i.offset(1);
+        }
+
+        None
+    }
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_basic_unrolled_align6(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+
+        // sse performs better with properly aligned data, so let's work through the
+        // initial bytes until we reach an alignment
+        let is_aligned = (i as usize).trailing_zeros() >= 4;
+        if !is_aligned && i.offset(16) <= end {
+            // First do an unaligned simd search
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+
+            // The least-significant 4 bytes of an address must be zeroed to be aligned
+            let align_mask: usize = !0b1111;
+            i = (i as usize & align_mask) as *const _;
+            // Now i is aligned, everything before it is scanned (and maybe some after it).
+        }        
+
+        while i.offset(64) <= end {
+            let mut x0 = ::std::ptr::read_volatile(i.offset(0) as *const __m128i);
+            let mut x1 = ::std::ptr::read_volatile(i.offset(16) as *const __m128i);
+            let mut x2 = ::std::ptr::read_volatile(i.offset(32) as *const __m128i);
+            let mut x3 = ::std::ptr::read_volatile(i.offset(48) as *const __m128i);
+
+            x0 = _mm_cmpeq_epi8(x0, q);
+            x1 = _mm_cmpeq_epi8(x1, q);
+            x2 = _mm_cmpeq_epi8(x2, q);
+            x3 = _mm_cmpeq_epi8(x3, q);
+
+            x2 = _mm_max_epu8(x0, x2);
+            x3 = _mm_max_epu8(x1, x3);
+            x3 = _mm_max_epu8(x2, x3);
+
+            let m = _mm_movemask_epi8(x3);
+
+            if m == 0 {
+                i = i.offset(64);
+                continue;
+            }
+
+            let z = _mm_movemask_epi8(x0);
+            if z != 0 {
+                return Some(0 + i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            let z = _mm_movemask_epi8(x1);
+            if z != 0 {
+                return Some(16 + i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            let x2 = ::std::ptr::read_volatile(i.offset(32) as *const __m128i);
+            let r2 = _mm_cmpeq_epi8(x2, q);
+            let z = _mm_movemask_epi8(r2);
+            if z != 0 {
+                return Some(32 + i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            let x3 = ::std::ptr::read_volatile(i.offset(48) as *const __m128i);
+            let r3 = _mm_cmpeq_epi8(x3, q);
+            let z = _mm_movemask_epi8(r3);
+            if z != 0 {
+                return Some(48 + i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            // unreachable
+        }
+
+        while i.offset(16) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        while i < end {
+            if *i == needle {
+                return Some(i as usize - start as usize);
+            }
+            i = i.offset(1);
+        }
+
+        None
+    }
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_basic_unrolled_align7(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+
+        // sse performs better with properly aligned data, so let's work through the
+        // initial bytes until we reach an alignment
+        let is_aligned = (i as usize).trailing_zeros() >= 4;
+        if !is_aligned && i.offset(16) <= end {
+            // First do an unaligned simd search
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+
+            // The least-significant 4 bytes of an address must be zeroed to be aligned
+            let align_mask: usize = !0b1111;
+            i = (i as usize & align_mask) as *const _;
+            // Now i is aligned, everything before it is scanned (and maybe some after it).
+        }
+
+        let mut count = i as usize - start as usize;
+
+        let mut found = false;
+        while count + 64 <= haystack.len() {
+            //let j = ::std::ptr::read_volatile(&i);
+            let j = i;
+            let mut x0 = _mm_load_si128(j as *const __m128i);
+            let mut x1 = _mm_load_si128(j.offset(16) as *const __m128i);
+            let mut x2 = _mm_load_si128(j.offset(32) as *const __m128i);
+            let mut x3 = _mm_load_si128(j.offset(48) as *const __m128i);
+            /*let mut x0 = ::std::ptr::read_volatile(j.offset(0) as *const __m128i);
+            let mut x1 = ::std::ptr::read_volatile(j.offset(16) as *const __m128i);
+            let mut x2 = ::std::ptr::read_volatile(j.offset(32) as *const __m128i);
+            let mut x3 = ::std::ptr::read_volatile(j.offset(48) as *const __m128i);*/
+
+            x0 = _mm_cmpeq_epi8(x0, q);
+            x1 = _mm_cmpeq_epi8(x1, q);
+            x2 = _mm_cmpeq_epi8(x2, q);
+            x3 = _mm_cmpeq_epi8(x3, q);
+
+            x2 = _mm_max_epu8(x0, x2);
+            x3 = _mm_max_epu8(x1, x3);
+            x3 = _mm_max_epu8(x2, x3);
+
+            let m = _mm_movemask_epi8(x3);
+
+            if m == 0 {
+                count += 64;
+                i = i.offset(64);
+                continue;
+            } else {
+                found = true;
+                break;
+            }
+        }
+
+        if found {
+            let j = ::std::ptr::read_volatile(&i);
+            //let j = i;
+            let x0 = _mm_load_si128(j.offset(0) as *const __m128i);
+            let r0 = _mm_cmpeq_epi8(x0, q);
+            let z = _mm_movemask_epi8(r0);
+            if z != 0 {
+                return Some(0 + j as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            let x1 = _mm_load_si128(j.offset(16) as *const __m128i);
+            let r1 = _mm_cmpeq_epi8(x1, q);
+            let z = _mm_movemask_epi8(r1);
+            if z != 0 {
+                return Some(16 + j as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            //let x2 = ::std::ptr::read_volatile(j.offset(32) as *const __m128i);
+            let x2 = _mm_load_si128(j.offset(32) as *const __m128i);
+            let r2 = _mm_cmpeq_epi8(x2, q);
+            let z = _mm_movemask_epi8(r2);
+            if z != 0 {
+                return Some(32 + j as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            //let x3 = ::std::ptr::read_volatile(j.offset(48) as *const __m128i);
+            let x3 = _mm_load_si128(j.offset(48) as *const __m128i);
+            let r3 = _mm_cmpeq_epi8(x3, q);
+            let z = _mm_movemask_epi8(r3);
+            if z != 0 {
+                return Some(48 + j as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            // unreachable
+        }
+
+        while i.offset(16) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        while i < end {
+            if *i == needle {
+                return Some(i as usize - start as usize);
+            }
+            i = i.offset(1);
+        }
+
+        None
+    }
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_basic_unrolled_align8(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+
+        // sse performs better with properly aligned data, so let's work through the
+        // initial bytes until we reach an alignment
+        let is_aligned = (i as usize).trailing_zeros() >= 4;
+        if !is_aligned && i.offset(16) <= end {
+            // First do an unaligned simd search
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+
+            // The least-significant 4 bytes of an address must be zeroed to be aligned
+            let align_mask: usize = !0b1111;
+            i = (i as usize & align_mask) as *const _;
+            // Now i is aligned, everything before it is scanned (and maybe some after it).
+        }
+
+        if end as usize - i as usize >= 64 {
+            let mut ii = i;
+            let mut found = false;
+            let end_minus = end.offset(-64);
+            let mut r0_ = ::std::mem::uninitialized();
+            let mut r1_ = ::std::mem::uninitialized();
+            while ii <= end_minus {
+                let j = ii;
+                let mut x0 = _mm_load_si128(j as *const __m128i);
+                let mut x1 = _mm_load_si128(j.offset(16) as *const __m128i);
+                let mut x2 = _mm_load_si128(j.offset(32) as *const __m128i);
+                let mut x3 = _mm_load_si128(j.offset(48) as *const __m128i);
+
+                x0 = _mm_cmpeq_epi8(x0, q);
+                x1 = _mm_cmpeq_epi8(x1, q);
+                x2 = _mm_cmpeq_epi8(x2, q);
+                x3 = _mm_cmpeq_epi8(x3, q);
+
+                x2 = _mm_max_epu8(x0, x2);
+                x3 = _mm_max_epu8(x1, x3);
+                x3 = _mm_max_epu8(x2, x3);
+
+                let m = _mm_movemask_epi8(x3);
+
+                if m == 0 {
+                    ii = ii.offset(64);
+                    continue;
+                } else {
+                    r0_ = x0;
+                    r1_ = x1;
+                    found = true;
+                    break;
+                }
+            }
+
+            i = ii;
+
+            if found {
+                let j = i;
+                let z = _mm_movemask_epi8(r0_);
+                if z != 0 {
+                    return Some(0 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = _mm_movemask_epi8(r1_);
+                if z != 0 {
+                    return Some(16 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let i2 = i;
+                let j = ::std::ptr::read_volatile(&i2);
+                let x2 = _mm_load_si128(j.offset(32) as *const __m128i);
+                let r2 = _mm_cmpeq_epi8(x2, q);
+                let z = _mm_movemask_epi8(r2);
+                if z != 0 {
+                    return Some(32 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let x3 = _mm_load_si128(j.offset(48) as *const __m128i);
+                let r3 = _mm_cmpeq_epi8(x3, q);
+                let z = _mm_movemask_epi8(r3);
+                if z != 0 {
+                    return Some(48 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                // unreachable
+            }
+        }
+
+        while i.offset(16) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        while i < end {
+            if *i == needle {
+                return Some(i as usize - start as usize);
+            }
+            i = i.offset(1);
+        }
+
+        None
+    }
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_basic_unrolled_align9(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+
+        // sse performs better with properly aligned data, so let's work through the
+        // initial bytes until we reach an alignment
+        let is_aligned = (i as usize).trailing_zeros() >= 4;
+        if !is_aligned && i.offset(16) <= end {
+            // First do an unaligned simd search
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+
+            // The least-significant 4 bytes of an address must be zeroed to be aligned
+            let align_mask: usize = !0b1111;
+            i = (i as usize & align_mask) as *const _;
+            // Now i is aligned, everything before it is scanned (and maybe some after it).
+        }
+
+        let mut ii = i;
+        let mut count = i as usize - start as usize;
+        let mut found = false;
+        let mut r0_ = ::std::mem::uninitialized();
+        let mut r1_ = ::std::mem::uninitialized();
+        while count + 64 <= haystack.len() {
+            let j = ii;
+            let mut x0 = _mm_load_si128(j as *const __m128i);
+            let mut x1 = _mm_load_si128(j.offset(16) as *const __m128i);
+            let mut x2 = _mm_load_si128(j.offset(32) as *const __m128i);
+            let mut x3 = _mm_load_si128(j.offset(48) as *const __m128i);
+
+            x0 = _mm_cmpeq_epi8(x0, q);
+            x1 = _mm_cmpeq_epi8(x1, q);
+            x2 = _mm_cmpeq_epi8(x2, q);
+            x3 = _mm_cmpeq_epi8(x3, q);
+
+            x2 = _mm_max_epu8(x0, x2);
+            x3 = _mm_max_epu8(x1, x3);
+            x3 = _mm_max_epu8(x2, x3);
+
+            let m = _mm_movemask_epi8(x3);
+
+            if m == 0 {
+                count += 64;
+                ii = ii.offset(64);
+                continue;
+            } else {
+                r0_ = x0;
+                r1_ = x1;
+                found = true;
+                break;
+            }
+        }
+
+        i = ii;
+
+        if found {
+            let j = i;
+            //let x0 = _mm_load_si128(j.offset(0) as *const __m128i);
+            //let r0 = _mm_cmpeq_epi8(x0, q);
+            let z = _mm_movemask_epi8(r0_);
+            if z != 0 {
+                return Some(0 + j as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            //let x1 = _mm_load_si128(j.offset(16) as *const __m128i);
+            //let r1 = _mm_cmpeq_epi8(x1, q);
+            let z = _mm_movemask_epi8(r1_);
+            if z != 0 {
+                return Some(16 + j as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            let j = ::std::ptr::read_volatile(&i);
+            let x2 = _mm_load_si128(j.offset(32) as *const __m128i);
+            let r2 = _mm_cmpeq_epi8(x2, q);
+            let z = _mm_movemask_epi8(r2);
+            if z != 0 {
+                return Some(32 + j as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            let x3 = _mm_load_si128(j.offset(48) as *const __m128i);
+            let r3 = _mm_cmpeq_epi8(x3, q);
+            let z = _mm_movemask_epi8(r3);
+            if z != 0 {
+                return Some(48 + j as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            // unreachable
+        }
+
+        while i.offset(16) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        while i < end {
+            if *i == needle {
+                return Some(i as usize - start as usize);
+            }
+            i = i.offset(1);
+        }
+
+        None
+    }
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_basic_unrolled_align10(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+
+        // sse performs better with properly aligned data, so let's work through the
+        // initial bytes until we reach an alignment
+        let is_aligned = (i as usize).trailing_zeros() >= 4;
+        if !is_aligned && i.offset(16) <= end {
+            // First do an unaligned simd search
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+
+            // The least-significant 4 bytes of an address must be zeroed to be aligned
+            let align_mask: usize = !0b1111;
+            i = (i as usize & align_mask) as *const _;
+            // Now i is aligned, everything before it is scanned (and maybe some after it).
+        }
+
+        if end as usize - i as usize >= 128 {
+            let mut ii = i;
+            let mut found = false;
+            let end_minus = end.offset(-128);
+            let mut r0_ = ::std::mem::uninitialized();
+            let mut r1_ = ::std::mem::uninitialized();
+            let mut r2_ = ::std::mem::uninitialized();
+            let mut r3_ = ::std::mem::uninitialized();
+            while ii <= end_minus {
+                let j = ii;
+                let mut x0 = _mm_load_si128(j.offset(0) as *const __m128i);
+                let mut x1 = _mm_load_si128(j.offset(16) as *const __m128i);
+                let mut x2 = _mm_load_si128(j.offset(32) as *const __m128i);
+                let mut x3 = _mm_load_si128(j.offset(48) as *const __m128i);
+                let mut x4 = _mm_load_si128(j.offset(64) as *const __m128i);
+                let mut x5 = _mm_load_si128(j.offset(80) as *const __m128i);
+                let mut x6 = _mm_load_si128(j.offset(96) as *const __m128i);
+                let mut x7 = _mm_load_si128(j.offset(112) as *const __m128i);
+
+                x0 = _mm_cmpeq_epi8(x0, q);
+                x1 = _mm_cmpeq_epi8(x1, q);
+                x2 = _mm_cmpeq_epi8(x2, q);
+                x3 = _mm_cmpeq_epi8(x3, q);
+                x4 = _mm_cmpeq_epi8(x4, q);
+                x5 = _mm_cmpeq_epi8(x5, q);
+                x6 = _mm_cmpeq_epi8(x6, q);
+                x7 = _mm_cmpeq_epi8(x7, q);
+
+                /*x4 = _mm_max_epu8(x0, x4);
+                x5 = _mm_max_epu8(x1, x5);
+                x6 = _mm_max_epu8(x2, x6);
+                x7 = _mm_max_epu8(x3, x7);
+                x6 = _mm_max_epu8(x4, x6);
+                x7 = _mm_max_epu8(x5, x7);
+                x7 = _mm_max_epu8(x6, x7);*/
+
+                x7 = _mm_max_epu8(x0, x7);
+                x7 = _mm_max_epu8(x1, x7);
+                x7 = _mm_max_epu8(x2, x7);
+                x7 = _mm_max_epu8(x3, x7);
+                x7 = _mm_max_epu8(x4, x7);
+                x7 = _mm_max_epu8(x5, x7);
+                x7 = _mm_max_epu8(x6, x7);
+
+                let m = _mm_movemask_epi8(x7);
+
+                if m == 0 {
+                    ii = ii.offset(128);
+                    continue;
+                } else {
+                    r0_ = x0;
+                    r1_ = x1;
+                    r2_ = x2;
+                    r3_ = x3;
+                    found = true;
+                    break;
+                }
+            }
+
+            i = ii;
+
+            if found {
+                let j = i;
+                let z = _mm_movemask_epi8(r0_);
+                if z != 0 {
+                    return Some(0 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = _mm_movemask_epi8(r1_);
+                if z != 0 {
+                    return Some(16 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = _mm_movemask_epi8(r2_);
+                if z != 0 {
+                    return Some(32 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = _mm_movemask_epi8(r3_);
+                if z != 0 {
+                    return Some(48 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let i2 = i;
+                let j = ::std::ptr::read_volatile(&i2);
+                let x4 = _mm_load_si128(j.offset(64) as *const __m128i);
+                let r4 = _mm_cmpeq_epi8(x4, q);
+                let z = _mm_movemask_epi8(r4);
+                if z != 0 {
+                    return Some(64 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let x5 = _mm_load_si128(j.offset(80) as *const __m128i);
+                let r5 = _mm_cmpeq_epi8(x5, q);
+                let z = _mm_movemask_epi8(r5);
+                if z != 0 {
+                    return Some(80 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let x6 = _mm_load_si128(j.offset(96) as *const __m128i);
+                let r6 = _mm_cmpeq_epi8(x6, q);
+                let z = _mm_movemask_epi8(r6);
+                if z != 0 {
+                    return Some(96 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let x7 = _mm_load_si128(j.offset(112) as *const __m128i);
+                let r7 = _mm_cmpeq_epi8(x7, q);
+                let z = _mm_movemask_epi8(r7);
+                if z != 0 {
+                    return Some(112 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                // unreachable
+            }
+        }
+
+        while i.offset(16) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        while i < end {
+            if *i == needle {
+                return Some(i as usize - start as usize);
+            }
+            i = i.offset(1);
+        }
+
+        None
+    }
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_basic_unrolled_align11(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+
+        // sse performs better with properly aligned data, so let's work through the
+        // initial bytes until we reach an alignment
+        let is_aligned = (i as usize).trailing_zeros() >= 4;
+        if !is_aligned && i.offset(16) <= end {
+            // First do an unaligned simd search
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+
+            // The least-significant 4 bytes of an address must be zeroed to be aligned
+            let align_mask: usize = !0b1111;
+            i = (i as usize & align_mask) as *const _;
+            // Now i is aligned, everything before it is scanned (and maybe some after it).
+        }
+
+        if end as usize - i as usize >= 64 {
+            let mut ii = i;
+            let mut found = false;
+            let end_minus = end.offset(-64);
+            let mut m0_ = ::std::mem::uninitialized();
+            let mut m1_ = ::std::mem::uninitialized();
+            let mut m2_ = ::std::mem::uninitialized();
+            let mut m3_ = ::std::mem::uninitialized();
+            while ii <= end_minus {
+                let j = ii;
+                let mut x0 = _mm_load_si128(j.offset(0) as *const __m128i);
+                let mut x1 = _mm_load_si128(j.offset(16) as *const __m128i);
+                let mut x2 = _mm_load_si128(j.offset(32) as *const __m128i);
+                let mut x3 = _mm_load_si128(j.offset(48) as *const __m128i);
+
+                x0 = _mm_cmpeq_epi8(x0, q);
+                x1 = _mm_cmpeq_epi8(x1, q);
+                x2 = _mm_cmpeq_epi8(x2, q);
+                x3 = _mm_cmpeq_epi8(x3, q);
+
+                let m0 = _mm_movemask_epi8(x0);
+                let m1 = _mm_movemask_epi8(x1);
+                let m2 = _mm_movemask_epi8(x2);
+                let m3 = _mm_movemask_epi8(x3);
+
+                let m = m0 | m1 | m2 | m3;
+
+                if m == 0 {
+                    ii = ii.offset(64);
+                    continue;
+                } else {
+                    m0_ = m0;
+                    m1_ = m1;
+                    m2_ = m2;
+                    m3_ = m3;
+                    found = true;
+                    break;
+                }
+            }
+
+            i = ii;
+
+            if found {
+                let j = i;
+                let z = m0_;
+                if z != 0 {
+                    return Some(0 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = m1_;
+                if z != 0 {
+                    return Some(16 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = m2_;
+                if z != 0 {
+                    return Some(32 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = m3_;
+                if z != 0 {
+                    return Some(48 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+            }
+        }
+
+        while i.offset(16) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        while i < end {
+            if *i == needle {
+                return Some(i as usize - start as usize);
+            }
+            i = i.offset(1);
+        }
+
+        None
+    }
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_basic_unrolled_align12(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+
+        // sse performs better with properly aligned data, so let's work through the
+        // initial bytes until we reach an alignment
+        let is_aligned = (i as usize).trailing_zeros() >= 4;
+        if !is_aligned && i.offset(16) <= end {
+            // First do an unaligned simd search
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+
+            // The least-significant 4 bytes of an address must be zeroed to be aligned
+            let align_mask: usize = !0b1111;
+            i = (i as usize & align_mask) as *const _;
+            // Now i is aligned, everything before it is scanned (and maybe some after it).
+        }
+
+        if end as usize - i as usize >= 64 {
+            let mut ii = i;
+            let mut found = false;
+            let end_minus = end.offset(-64);
+            let mut r0_ = ::std::mem::uninitialized();
+            let mut r1_ = ::std::mem::uninitialized();
+            while ii <= end_minus {
+                let j = ii;
+                let mut x0 = _mm_load_si128(j.offset(0) as *const __m128i);
+                let mut x1 = _mm_load_si128(j.offset(16) as *const __m128i);
+                let mut x2 = _mm_load_si128(j.offset(32) as *const __m128i);
+                let mut x3 = _mm_load_si128(j.offset(48) as *const __m128i);
+
+                x0 = _mm_cmpeq_epi8(x0, q);
+                x1 = _mm_cmpeq_epi8(x1, q);
+                x2 = _mm_cmpeq_epi8(x2, q);
+                x3 = _mm_cmpeq_epi8(x3, q);
+
+                x2 = _mm_or_si128(x0, x2);
+                x3 = _mm_or_si128(x1, x3);
+                x3 = _mm_or_si128(x2, x3);
+
+                let m = _mm_movemask_epi8(x3);
+
+                if m == 0 {
+                    ii = ii.offset(64);
+                    continue;
+                } else {
+                    r0_ = x0;
+                    r1_ = x1;
+                    found = true;
+                    break;
+                }
+            }
+
+            i = ii;
+
+            if found {
+                let j = i;
+                let z = _mm_movemask_epi8(r0_);
+                if z != 0 {
+                    return Some(0 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = _mm_movemask_epi8(r1_);
+                if z != 0 {
+                    return Some(16 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let i2 = i;
+                let j = ::std::ptr::read_volatile(&i2);
+                let x2 = _mm_load_si128(j.offset(32) as *const __m128i);
+                let r2 = _mm_cmpeq_epi8(x2, q);
+                let z = _mm_movemask_epi8(r2);
+                if z != 0 {
+                    return Some(32 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let x3 = _mm_load_si128(j.offset(48) as *const __m128i);
+                let r3 = _mm_cmpeq_epi8(x3, q);
+                let z = _mm_movemask_epi8(r3);
+                if z != 0 {
+                    return Some(48 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                // unreachable
+            }
+        }
+
+        while i.offset(16) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        while i < end {
+            if *i == needle {
+                return Some(i as usize - start as usize);
+            }
+            i = i.offset(1);
+        }
+
+        None
+    }
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_basic_unrolled_align13(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+
+        // sse performs better with properly aligned data, so let's work through the
+        // initial bytes until we reach an alignment
+        let is_aligned = (i as usize).trailing_zeros() >= 4;
+        if !is_aligned && i.offset(16) <= end {
+            // First do an unaligned simd search
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+
+            // The least-significant 4 bytes of an address must be zeroed to be aligned
+            let align_mask: usize = !0b1111;
+            i = (i as usize & align_mask) as *const _;
+            // Now i is aligned, everything before it is scanned (and maybe some after it).
+        }
+
+        if end as usize - i as usize >= 64 {
+            let mut ii = i;
+            let mut found = false;
+            let end_minus = end.offset(-64);
+            let mut m0_ = ::std::mem::uninitialized();
+            let mut m1_ = ::std::mem::uninitialized();
+            let mut m2_ = ::std::mem::uninitialized();
+            let mut m3_ = ::std::mem::uninitialized();
+            while ii <= end_minus {
+                let j = ii;
+                let mut x0 = _mm_load_si128(j.offset(0) as *const __m128i);
+                let mut x1 = _mm_load_si128(j.offset(16) as *const __m128i);
+                let mut x2 = _mm_load_si128(j.offset(32) as *const __m128i);
+                let mut x3 = _mm_load_si128(j.offset(48) as *const __m128i);
+
+                x0 = _mm_cmpeq_epi8(x0, q);
+                x1 = _mm_cmpeq_epi8(x1, q);
+                x2 = _mm_cmpeq_epi8(x2, q);
+                x3 = _mm_cmpeq_epi8(x3, q);
+
+                let m = [_mm_movemask_epi8(x0),
+                         _mm_movemask_epi8(x1),
+                         _mm_movemask_epi8(x2),
+                         _mm_movemask_epi8(x3)];
+
+                let z: u128 = ::std::mem::transmute(m);
+
+                if z != 0 {
+                    ii = ii.offset(64);
+                    continue;
+                } else {
+                    m0_ = m[0];
+                    m1_ = m[1];
+                    m2_ = m[2];
+                    m3_ = m[3];
+                    found = true;
+                    break;
+                }
+            }
+
+            i = ii;
+
+            if found {
+                let j = i;
+                let z = m0_;
+                if z != 0 {
+                    return Some(0 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = m1_;
+                if z != 0 {
+                    return Some(16 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = m2_;
+                if z != 0 {
+                    return Some(32 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = m3_;
+                if z != 0 {
+                    return Some(48 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+            }
+        }
+
+        while i.offset(16) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        while i < end {
+            if *i == needle {
+                return Some(i as usize - start as usize);
+            }
+            i = i.offset(1);
+        }
+
+        None
+    }
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_basic_unrolled_align14(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+
+        // sse performs better with properly aligned data, so let's work through the
+        // initial bytes until we reach an alignment
+        let is_aligned = (i as usize).trailing_zeros() >= 4;
+        if !is_aligned && i.offset(16) <= end {
+            // First do an unaligned simd search
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+
+            // The least-significant 4 bytes of an address must be zeroed to be aligned
+            let align_mask: usize = !0b1111;
+            i = (i as usize & align_mask) as *const _;
+            // Now i is aligned, everything before it is scanned (and maybe some after it).
+        }
+
+        if end as usize - i as usize >= 128 {
+            let mut ii = i;
+            let mut found = false;
+            let end_minus = end.offset(-128);
+            let mut r0_ = ::std::mem::uninitialized();
+            let mut r1_ = ::std::mem::uninitialized();
+            let mut r2_ = ::std::mem::uninitialized();
+            let mut r3_ = ::std::mem::uninitialized();
+            while ii <= end_minus {
+                let j = ii;
+                let mut x0 = _mm_load_si128(j.offset(0) as *const __m128i);
+                let mut x1 = _mm_load_si128(j.offset(16) as *const __m128i);
+                let mut x2 = _mm_load_si128(j.offset(32) as *const __m128i);
+                let mut x3 = _mm_load_si128(j.offset(48) as *const __m128i);
+                let mut x4 = _mm_load_si128(j.offset(64) as *const __m128i);
+                let mut x5 = _mm_load_si128(j.offset(80) as *const __m128i);
+                let mut x6 = _mm_load_si128(j.offset(96) as *const __m128i);
+                let mut x7 = _mm_load_si128(j.offset(112) as *const __m128i);
+
+                x0 = _mm_cmpeq_epi8(x0, q);
+                x1 = _mm_cmpeq_epi8(x1, q);
+                x2 = _mm_cmpeq_epi8(x2, q);
+                x3 = _mm_cmpeq_epi8(x3, q);
+                x4 = _mm_cmpeq_epi8(x4, q);
+                x5 = _mm_cmpeq_epi8(x5, q);
+                x6 = _mm_cmpeq_epi8(x6, q);
+                x7 = _mm_cmpeq_epi8(x7, q);
+
+                /*x4 = _mm_or_si128(x0, x4);
+                x5 = _mm_or_si128(x1, x5);
+                x6 = _mm_or_si128(x2, x6);
+                x7 = _mm_or_si128(x3, x7);
+                x6 = _mm_or_si128(x4, x6);
+                x7 = _mm_or_si128(x5, x7);
+                x7 = _mm_or_si128(x6, x7);*/
+
+                /*x7 = _mm_or_si128(x7, x0);
+                x7 = _mm_or_si128(x7, x1);
+                x7 = _mm_or_si128(x7, x2);
+                x7 = _mm_or_si128(x7, x3);
+                x7 = _mm_or_si128(x7, x4);
+                x7 = _mm_or_si128(x7, x5);
+                x7 = _mm_or_si128(x7, x6);*/
+
+                let mut x8 = x0;
+                x8 = _mm_or_si128(x1, x8);
+                x8 = _mm_or_si128(x2, x8);
+                x8 = _mm_or_si128(x3, x8);
+                x8 = _mm_or_si128(x4, x8);
+                x8 = _mm_or_si128(x5, x8);
+                x8 = _mm_or_si128(x6, x8);
+                x8 = _mm_or_si128(x7, x8);
+
+                let m = _mm_movemask_epi8(x8);
+
+                if m == 0 {
+                    ii = ii.offset(128);
+                    continue;
+                } else {
+                    r0_ = x0;
+                    r1_ = x1;
+                    r2_ = x2;
+                    r3_ = x3;
+                    found = true;
+                    break;
+                }
+            }
+
+            i = ii;
+
+            if found {
+                let j = i;
+                let z = _mm_movemask_epi8(r0_);
+                if z != 0 {
+                    return Some(0 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = _mm_movemask_epi8(r1_);
+                if z != 0 {
+                    return Some(16 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = _mm_movemask_epi8(r2_);
+                if z != 0 {
+                    return Some(32 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = _mm_movemask_epi8(r3_);
+                if z != 0 {
+                    return Some(48 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let i2 = i;
+                let j = ::std::ptr::read_volatile(&i2);
+                let x4 = _mm_load_si128(j.offset(64) as *const __m128i);
+                let r4 = _mm_cmpeq_epi8(x4, q);
+                let z = _mm_movemask_epi8(r4);
+                if z != 0 {
+                    return Some(64 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let x5 = _mm_load_si128(j.offset(80) as *const __m128i);
+                let r5 = _mm_cmpeq_epi8(x5, q);
+                let z = _mm_movemask_epi8(r5);
+                if z != 0 {
+                    return Some(80 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let x6 = _mm_load_si128(j.offset(96) as *const __m128i);
+                let r6 = _mm_cmpeq_epi8(x6, q);
+                let z = _mm_movemask_epi8(r6);
+                if z != 0 {
+                    return Some(96 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let x7 = _mm_load_si128(j.offset(112) as *const __m128i);
+                let r7 = _mm_cmpeq_epi8(x7, q);
+                let z = _mm_movemask_epi8(r7);
+                if z != 0 {
+                    return Some(112 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                // unreachable
+            }
+        }
+
+        while i.offset(16) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        while i < end {
+            if *i == needle {
+                return Some(i as usize - start as usize);
+            }
+            i = i.offset(1);
+        }
+
+        None
+    }
+
+    // Winner
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_basic_unrolled_align15(needle: u8, haystack: &[u8]) -> Option<usize> {
+        use std::intrinsics::{likely, unlikely, cttz_nonzero};
+
+        if haystack.is_empty() { return None }
+        if unlikely(haystack[0] == needle) {
+            return Some(0);
+        }
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        // TODO try not incrementing i
+        let mut i: *const u8 = start;
+
+        /*if haystack.len() < 16 {
+            let mask = 4 - 1;
+            while i as usize & mask != 0 && i < end {
+                if unlikely(*i == needle) {
+                    return Some(i as usize - start as usize);
+                }
+                i = i.offset(1);
+            }
+            let n32 = needle as u32;
+            let mut qq = n32 | n32 << 8;
+            qq = qq | qq << 16;
+            while i.offset(4) < end {
+                let ii = i as *const u32;
+                let j = *ii ^ qq;
+                let jj = &j as *const u32 as *const u8;
+                #[inline]
+                fn contains_zero_byte_(x: u32) -> bool {
+                    const LO_U32: u32 = 0x01010101;
+                    const HI_U32: u32 = 0x80808080;
+                    x.wrapping_sub(LO_U32) & !x & HI_U32 != 0
+                }
+                if unlikely(contains_zero_byte_(j)) {
+                    if unlikely(*jj.offset(0) == 0) {
+                        return Some(i as usize - start as usize);
+                    }
+                    if unlikely(*jj.offset(1) == 0) {
+                        return Some(i.offset(1) as usize - start as usize);
+                    }
+                    if unlikely(*jj.offset(2) == 0) {
+                        return Some(i.offset(2) as usize - start as usize);
+                    }
+                    if unlikely(*jj.offset(3) == 0) {
+                        return Some(i.offset(3) as usize - start as usize);
+                    }
+                    // unreachable
+                }
+                i = i.offset(4);
+            }
+            while i < end {
+                if *i == needle {
+                    return Some(i as usize - start as usize);
+                }
+                i = i.offset(1);
+            }
+            return None;
+        }*/
+
+        let q = _mm_set1_epi8(needle as i8);
+
+        // sse performs better with properly aligned data, so let's work through the
+        // initial bytes until we reach an alignment
+        /*let align_mask: usize = 0b1111;
+        let is_aligned = i as usize & align_mask == 0;
+        if likely(!is_aligned) {
+            // First do an unaligned simd search
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if unlikely(z != 0) {
+                return Some(i as usize - start as usize + cttz_nonzero(z) as usize);
+            }
+            i = i.offset(16);
+
+            // The least-significant 4 bytes of an address must be zeroed to be aligned
+            let align_mask: usize = !0b1111;
+            i = (i as usize & align_mask) as *const _;
+            // Now i is aligned, everything before it is scanned (and maybe some after it).
+        }*/
+
+        // TODO: Find a cutoff point for haystack.len() cutoff point
+        // for doing simd search
+        // TODO: figure out if this extra upfront aligned short buffer
+        // branch is worth it.
+        
+        let align_mask = 16 - 1;
+        let overalignment = (i as usize & align_mask) as isize;
+        let aligned = overalignment == 0;
+
+        /*if haystack.len() < 16 && aligned {
+            let o = 0;
+            let x = _mm_load_si128(i.offset(o) as usize as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            let extra_bytes = i as usize + 16 - end as usize;
+            let garbage_mask = {
+                let ones = u32::max_value();
+                let mask = ones << (16 - extra_bytes);
+                let mask = !mask;
+                mask as i32
+            };
+            let z = z & garbage_mask;
+            if unlikely(z != 0) {
+                return Some(i.offset(o) as usize + cttz_nonzero(z) as usize - start as usize);
+            }
+        }*/
+
+        // Handle unaligned haystacks or haystacks less than 16 bytes. This
+        // searches bytes both prior to and beyond the haystack, but not
+        // beyond the cacheline or page boundary.
+        // TODO figure out if doing the more complex masking and
+        // pointer math is worth the aligned load.
+        if !aligned {
+            // haystack.len() may be < 16
+            i = i.wrapping_offset(-overalignment);
+            let o = 0;
+            let x = _mm_load_si128(i.offset(o) as usize as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            let garbage_mask = {
+                debug_assert!(overalignment < 16);
+                let max_hi_bytes = ::std::cmp::min(haystack.len(), 16);
+                let ones = u32::max_value();
+                let mask = ones << max_hi_bytes;
+                let mask = !mask;
+                let mask = mask << overalignment;
+                mask as i32
+            };
+            let z = z & garbage_mask;
+            if unlikely(z != 0) {
+                return Some(i.offset(o) as usize + cttz_nonzero(z) as usize - start as usize);
+            }
+
+            i = i.offset(16);
+
+            if i >= end {
+                return None;
+            }
+
+            if i.offset(16) > end {
+                let o = 0;
+                let x = _mm_load_si128(i.offset(o) as usize as *const __m128i);
+                let r = _mm_cmpeq_epi8(x, q);
+                let z = _mm_movemask_epi8(r);
+                let extra_bytes = i as usize + 16 - end as usize;
+                let garbage_mask = {
+                    let ones = u32::max_value();
+                    let mask = ones << (16 - extra_bytes);
+                    let mask = !mask;
+                    mask as i32
+                };
+                let z = z & garbage_mask;
+                if unlikely(z != 0) {
+                    return Some(i.offset(o) as usize + cttz_nonzero(z) as usize - start as usize);
+                }
+
+                return None;
+            }
+        }
+
+        // TODO confirm this performs better than the max_epu8 strategy
+        /*if likely(i.offset(64) <= end) {
+            let o = 0;
+            let x = _mm_load_si128(i.offset(o) as usize as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if unlikely(z != 0) {
+                return Some(i.offset(o) as usize - start as usize + cttz_nonzero(z) as usize);
+            }
+
+            let o = 16;
+            let x = _mm_load_si128(i.offset(o) as usize as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if unlikely(z != 0) {
+                return Some(i.offset(o) as usize - start as usize + cttz_nonzero(z) as usize);
+            }
+
+            let o = 32;
+            let x = _mm_load_si128(i.offset(o) as usize as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if unlikely(z != 0) {
+                return Some(i.offset(o) as usize - start as usize + cttz_nonzero(z) as usize);
+            }
+
+            let o = 48;
+            let x = _mm_load_si128(i.offset(o) as usize as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if unlikely(z != 0) {
+                return Some(i.offset(o) as usize - start as usize + cttz_nonzero(z) as usize);
+            }
+
+            i = i.offset(64);
+        }*/
+
+        if likely(i.offset(128) <= end) {
+            let mut ii = i;
+            let mut found = false;
+            let end_minus = end.offset(-128);
+            let mut r0_ = ::std::mem::uninitialized();
+            let mut r1_ = ::std::mem::uninitialized();
+            let mut r2_ = ::std::mem::uninitialized();
+            let mut r3_ = ::std::mem::uninitialized();
+            let mut r4_ = ::std::mem::uninitialized();
+            let mut r5_ = ::std::mem::uninitialized();
+            let mut r6_ = ::std::mem::uninitialized();
+            while ii <= end_minus {
+                let j = ii;
+                let mut x0 = _mm_load_si128(j.offset(0) as *const __m128i);
+                let mut x1 = _mm_load_si128(j.offset(16) as *const __m128i);
+                let mut x2 = _mm_load_si128(j.offset(32) as *const __m128i);
+                let mut x3 = _mm_load_si128(j.offset(48) as *const __m128i);
+                let mut x4 = _mm_load_si128(j.offset(64) as *const __m128i);
+                let mut x5 = _mm_load_si128(j.offset(80) as *const __m128i);
+                let mut x6 = _mm_load_si128(j.offset(96) as *const __m128i);
+                let mut x7 = _mm_load_si128(j.offset(112) as *const __m128i);
+
+                x0 = _mm_cmpeq_epi8(x0, q);
+                x1 = _mm_cmpeq_epi8(x1, q);
+                x2 = _mm_cmpeq_epi8(x2, q);
+                x3 = _mm_cmpeq_epi8(x3, q);
+                x4 = _mm_cmpeq_epi8(x4, q);
+                x5 = _mm_cmpeq_epi8(x5, q);
+                x6 = _mm_cmpeq_epi8(x6, q);
+                x7 = _mm_cmpeq_epi8(x7, q);
+
+                x7 = _mm_max_epu8(x0, x7);
+                x7 = _mm_max_epu8(x1, x7);
+                x7 = _mm_max_epu8(x2, x7);
+                x7 = _mm_max_epu8(x3, x7);
+                x7 = _mm_max_epu8(x4, x7);
+                x7 = _mm_max_epu8(x5, x7);
+                x7 = _mm_max_epu8(x6, x7);
+
+                let m = _mm_movemask_epi8(x7);
+
+                if m == 0 {
+                    ii = ii.offset(128);
+                    continue;
+                } else {
+                    r0_ = x0;
+                    r1_ = x1;
+                    r2_ = x2;
+                    r3_ = x3;
+                    r4_ = x4;
+                    r5_ = x5;
+                    r6_ = x6;
+                    found = true;
+                    break;
+                 }
+            }
+
+            i = ii;
+
+            if found {
+                let j = i;
+                let s = j as usize - start as usize;
+
+                let z = _mm_movemask_epi8(r0_);
+                if unlikely(z != 0) {
+                    return Some(0 + s + cttz_nonzero(z) as usize);
+                }
+                let z = _mm_movemask_epi8(r1_);
+                if unlikely(z != 0) {
+                    return Some(16 + s + cttz_nonzero(z) as usize);
+                }
+                let z = _mm_movemask_epi8(r2_);
+                if unlikely(z != 0) {
+                    return Some(32 + s + cttz_nonzero(z) as usize);
+                }
+                let z = _mm_movemask_epi8(r3_);
+                if unlikely(z != 0) {
+                    return Some(48 + s + cttz_nonzero(z) as usize);
+                }
+                let z = _mm_movemask_epi8(r4_);
+                if unlikely(z != 0) {
+                    return Some(64 + s + cttz_nonzero(z) as usize);
+                }
+                let z = _mm_movemask_epi8(r5_);
+                if unlikely(z != 0) {
+                    return Some(80 + s + cttz_nonzero(z) as usize);
+                }
+                let z = _mm_movemask_epi8(r6_);
+                if unlikely(z != 0) {
+                    return Some(96 + s + cttz_nonzero(z) as usize);
+                }
+
+                let i2 = i;
+                let j = ::std::ptr::read_volatile(&i2);
+                let x7 = _mm_load_si128(j.offset(112) as *const __m128i);
+                let r7 = _mm_cmpeq_epi8(x7, q);
+                let z = _mm_movemask_epi8(r7);
+                debug_assert!(z != 0);
+                return Some(112 + s + cttz_nonzero(z) as usize);
+            }
+        }
+
+        loop {
+            if i.offset(32) <= end {
+                let o = 0;
+                let x = _mm_load_si128(i.offset(o) as usize as *const __m128i);
+                let r = _mm_cmpeq_epi8(x, q);
+                let z = _mm_movemask_epi8(r);
+                if unlikely(z != 0) {
+                    return Some(i.offset(o) as usize - start as usize + cttz_nonzero(z) as usize);
+                }
+
+                let o = 16;
+                let x = _mm_load_si128(i.offset(o) as usize as *const __m128i);
+                let r = _mm_cmpeq_epi8(x, q);
+                let z = _mm_movemask_epi8(r);
+                if unlikely(z != 0) {
+                    return Some(i.offset(o) as usize - start as usize + cttz_nonzero(z) as usize);
+                }
+
+                i = i.offset(32);
+            } else {
+                if i.offset(16) <= end {
+                    let o = 0;
+                    let x = _mm_load_si128(i.offset(o) as usize as *const __m128i);
+                    let r = _mm_cmpeq_epi8(x, q);
+                    let z = _mm_movemask_epi8(r);
+                    if unlikely(z != 0) {
+                        return Some(i.offset(o) as usize - start as usize + cttz_nonzero(z) as usize);
+                    }
+
+                    i = i.offset(16);
+                }
+
+                break;
+            }
+        }
+
+        // TODO: do this without the unaligned load
+        /*debug_assert!((end as usize - i as usize) < 16);
+        if i < end {
+            debug_assert!(haystack.len() >= 16);
+            i = end.offset(-16);
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if unlikely(z != 0) {
+                return Some(i.offset(0) as usize - start as usize + cttz_nonzero(z) as usize);
+            }
+        }*/
+
+        // Just like with the prologue, this search will scan past the end of
+        // the buffer (but not a cacheline or page boundary), then mask out the
+        // garbage results.
+        if i < end {
+            let o = 0;
+            let x = _mm_load_si128(i.offset(o) as usize as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            let extra_bytes = o as usize + 16 - end as usize;
+            let garbage_mask = {
+                let ones = u32::max_value();
+                let mask = ones << (16 - extra_bytes);
+                let mask = !mask;
+                mask as i32
+            };
+            let z = z & garbage_mask;
+            if unlikely(z != 0) {
+                return Some(i.offset(o) as usize + cttz_nonzero(z) as usize - start as usize);
+            }
+
+            if cfg!(debug) || cfg!(test) {
+                i = i.offset(16).offset(-(extra_bytes as isize));
+            }
+        }
+
+        debug_assert_eq!(i, end);
+
+        None
+    }
+
+    #[target_feature(enable = "sse3")]
+    pub unsafe fn memchr_basic_unrolled_align16(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let q = _mm_set1_epi8(needle as i8);
+
+        let start = haystack.as_ptr();
+        let end = start.offset(haystack.len() as isize);
+
+        let mut i: *const u8 = start;
+
+        // sse performs better with properly aligned data, so let's work through the
+        // initial bytes until we reach an alignment
+        let is_aligned = (i as usize).trailing_zeros() >= 4;
+        if !is_aligned && i.offset(16) <= end {
+            // First do an unaligned simd search
+            let x = _mm_lddqu_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+
+            // The least-significant 4 bytes of an address must be zeroed to be aligned
+            let align_mask: usize = !0b1111;
+            i = (i as usize & align_mask) as *const _;
+            // Now i is aligned, everything before it is scanned (and maybe some after it).
+        }
+
+        if end as usize - i as usize >= 128 {
+            let mut ii = i;
+            let mut found = false;
+            let end_minus = end.offset(-128);
+            let mut r0_ = ::std::mem::uninitialized();
+            let mut r1_ = ::std::mem::uninitialized();
+            let mut r2_ = ::std::mem::uninitialized();
+            let mut r3_ = ::std::mem::uninitialized();
+            let mut r4_ = ::std::mem::uninitialized();
+            let mut r5_ = ::std::mem::uninitialized();
+            let mut r6_ = ::std::mem::uninitialized();
+            let mut r7_ = ::std::mem::uninitialized();
+            while ii <= end_minus {
+                let j = ii;
+                let mut x0 = _mm_load_si128(j.offset(0) as *const __m128i);
+                let mut x1 = _mm_load_si128(j.offset(16) as *const __m128i);
+                let mut x2 = _mm_load_si128(j.offset(32) as *const __m128i);
+                let mut x3 = _mm_load_si128(j.offset(48) as *const __m128i);
+                let mut x4 = _mm_load_si128(j.offset(64) as *const __m128i);
+                let mut x5 = _mm_load_si128(j.offset(80) as *const __m128i);
+                let mut x6 = _mm_load_si128(j.offset(96) as *const __m128i);
+                let mut x7 = _mm_load_si128(j.offset(112) as *const __m128i);
+
+                x0 = _mm_cmpeq_epi8(x0, q);
+                x1 = _mm_cmpeq_epi8(x1, q);
+                x2 = _mm_cmpeq_epi8(x2, q);
+                x3 = _mm_cmpeq_epi8(x3, q);
+                x4 = _mm_cmpeq_epi8(x4, q);
+                x5 = _mm_cmpeq_epi8(x5, q);
+                x6 = _mm_cmpeq_epi8(x6, q);
+                x7 = _mm_cmpeq_epi8(x7, q);
+
+                /*x4 = _mm_max_epu8(x0, x4);
+                x5 = _mm_max_epu8(x1, x5);
+                x6 = _mm_max_epu8(x2, x6);
+                x7 = _mm_max_epu8(x3, x7);
+                x6 = _mm_max_epu8(x4, x6);
+                x7 = _mm_max_epu8(x5, x7);
+                x7 = _mm_max_epu8(x6, x7);*/
+
+                let mut x8 = x7;
+                x8 = _mm_max_epu8(x0, x8);
+                x8 = _mm_max_epu8(x1, x8);
+                x8 = _mm_max_epu8(x2, x8);
+                x8 = _mm_max_epu8(x3, x8);
+                x8 = _mm_max_epu8(x4, x8);
+                x8 = _mm_max_epu8(x5, x8);
+                x8 = _mm_max_epu8(x6, x8);
+
+                let m = _mm_movemask_epi8(x8);
+
+                if m == 0 {
+                    ii = ii.offset(128);
+                    continue;
+                } else {
+                    r0_ = x0;
+                    r1_ = x1;
+                    r2_ = x2;
+                    r3_ = x3;
+                    r4_ = x4;
+                    r5_ = x5;
+                    r6_ = x6;
+                    r7_ = x7;
+                    found = true;
+                    break;
+                }
+            }
+
+            i = ii;
+
+            if found {
+                let j = i;
+                let z = _mm_movemask_epi8(r0_);
+                if z != 0 {
+                    return Some(0 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = _mm_movemask_epi8(r1_);
+                if z != 0 {
+                    return Some(16 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = _mm_movemask_epi8(r2_);
+                if z != 0 {
+                    return Some(32 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = _mm_movemask_epi8(r3_);
+                if z != 0 {
+                    return Some(48 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = _mm_movemask_epi8(r4_);
+                if z != 0 {
+                    return Some(64 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = _mm_movemask_epi8(r5_);
+                if z != 0 {
+                    return Some(80 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = _mm_movemask_epi8(r6_);
+                if z != 0 {
+                    return Some(96 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                let z = _mm_movemask_epi8(r7_);
+                if z != 0 {
+                    return Some(112 + j as usize - start as usize + z.trailing_zeros() as usize);
+                }
+                // unreachable
+            }
+        }
+
+        while i.offset(16) <= end {
+            let x = _mm_load_si128(i as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
+            if z != 0 {
+                return Some(i as usize - start as usize + z.trailing_zeros() as usize);
+            }
+            i = i.offset(16);
+        }
+
+        while i < end {
+            if *i == needle {
+                return Some(i as usize - start as usize);
+            }
+            i = i.offset(1);
+        }
+
+        None
+    }
+
+    #[inline(always)]
+    pub fn memrchr_unsafe(needle: u8, haystack: &[u8]) -> Option<usize> {
+        unsafe { memrchr(needle, haystack) }
+    }
+
+    pub unsafe fn memrchr(needle: u8, haystack: &[u8]) -> Option<usize> {
+        ::fallback::memrchr(needle, haystack)
+    }
+}
+
 #[allow(dead_code)]
-#[cfg(any(test, not(feature = "libc"), all(not(target_os = "linux"),
-          any(target_pointer_width = "32", target_pointer_width = "64"))))]
-mod fallback {
+//#[cfg(any(test, not(feature = "libc"), all(not(target_os = "linux"),
+//          any(target_pointer_width = "32", target_pointer_width = "64"))))]
+#[allow(missing_docs)]
+pub mod fallback {
     #[cfg(feature = "use_std")]
     use std::cmp;
     #[cfg(not(feature = "use_std"))]
@@ -423,6 +3210,32 @@ mod fallback {
         LO_U64, HI_U64, LO_USIZE, HI_USIZE, USIZE_BYTES,
         contains_zero_byte, repeat_byte,
     };
+
+    pub fn memchr_simple_unsafe(x: u8, text: &[u8]) -> Option<usize> {
+        unsafe { memchr_simple(x, text) }
+    }
+
+    // TODO: I had this autovectorizing beautifully for a moment,
+    // but can't figure out how
+    pub unsafe fn memchr_simple(x: u8, text: &[u8]) -> Option<usize> {
+        let len = text.len();
+        let ptr = text.as_ptr();
+
+        let mut i = 0;
+
+        while i < len {
+            if *ptr.offset(i as isize) == x {
+                break;
+            }
+            i += 1;
+        }
+
+        if i != len {
+            Some(i)
+        } else {
+            None
+        }
+    }
 
     /// Return the first index matching the byte `x` in `text`.
     pub fn memchr(x: u8, text: &[u8]) -> Option<usize> {
@@ -668,6 +3481,8 @@ mod tests {
 
     memchr_tests! { native, ::memchr, ::memrchr }
     memchr_tests! { fallback, ::fallback::memchr, ::fallback::memrchr }
+    memchr_tests! { avx2, ::avx2::memchr_unsafe, ::avx2::memrchr_unsafe }
+    memchr_tests! { sse, ::sse::memchr_unsafe, ::sse::memrchr_unsafe }
 
     #[test]
     fn memchr2_matches_one() {
