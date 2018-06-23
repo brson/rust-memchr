@@ -448,12 +448,12 @@ pub mod avx2 {
         // Config options.
 
         // Doing unaligned loads really doesn't affect perf on AVX2
-        let align = false;
-        let simple_core = true;
+        let c_align = false;
+        let c_simple_core = true;
 
         // TODO: Compare aligned perf to unaligned perf and move
         // this to the final step if they are the same.
-        if align {
+        if c_align {
             let align_mask = 32 - 1;
             let overalignment = (p as usize & align_mask) as isize;
             let aligned = overalignment == 0;
@@ -514,8 +514,8 @@ pub mod avx2 {
 
         #[inline]
         #[target_feature(enable = "avx2")]
-        unsafe fn load(p: *const u8, o: isize, align: bool) -> __m256i {
-            if align {
+        unsafe fn load(p: *const u8, o: isize, c_align: bool) -> __m256i {
+            if c_align {
                 _mm256_load_si256(p.offset(o) as *const __m256i)
             } else {
                 _mm256_loadu_si256(p.offset(o) as *const __m256i)
@@ -525,9 +525,9 @@ pub mod avx2 {
         #[inline]
         #[target_feature(enable = "avx2")]
         unsafe fn cmp(q: __m256i, p: *const u8, i: isize, o: isize,
-                      align: bool) -> Option<usize> {
+                      c_align: bool) -> Option<usize> {
             let o = i + o;
-            let x = load(p, o, align);
+            let x = load(p, o, c_align);
             let r = _mm256_cmpeq_epi8(x, q);
             let z = _mm256_movemask_epi8(r);
             if z != 0 {
@@ -538,13 +538,13 @@ pub mod avx2 {
 
         // TODO consider stream_load
         // consider testc_si256 / testnzc_si256 / testz
-        if simple_core {
+        if c_simple_core {
             while i + 128 <= len {
                 if let Some(r) = None
-                    .or_else(|| cmp(q, p, i, 0, align))
-                    .or_else(|| cmp(q, p, i, 32, align))
-                    .or_else(|| cmp(q, p, i, 64, align))
-                    .or_else(|| cmp(q, p, i, 96, align))
+                    .or_else(|| cmp(q, p, i, 00, c_align))
+                    .or_else(|| cmp(q, p, i, 32, c_align))
+                    .or_else(|| cmp(q, p, i, 64, c_align))
+                    .or_else(|| cmp(q, p, i, 96, c_align))
                 {
                     return Some(r);
                 }
@@ -561,14 +561,14 @@ pub mod avx2 {
         }
 
         while i + 32 <= len  {
-            if let Some(r) = cmp(q, p, i, 0, align) {
+            if let Some(r) = cmp(q, p, i, 0, c_align) {
                 return Some(r);
             }
 
             i += 32;
         }
 
-        if align {
+        if c_align {
             if i < len {
                 let o = i + 0;
                 let x = _mm256_load_si256(p.offset(o) as *const __m256i);
@@ -590,8 +590,9 @@ pub mod avx2 {
                     i += 32 - (extra_bytes as isize);
                 }
             }
-        } else /* !align */ {
+        } else /* !c_align */ {
             if i < len {
+
                 let align_mask = 32 - 1;
                 let overalignment = (p.offset(i) as usize & align_mask) as isize;
                 i -= overalignment;
