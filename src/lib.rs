@@ -577,7 +577,7 @@ pub mod avx2 {
                 let extra_bytes = o as usize + 32 - len as usize;
                 let garbage_mask = {
                     let ones = u32::max_value();
-                    let mask = ones << (16 - extra_bytes);
+                    let mask = ones << (32 - extra_bytes);
                     let mask = !mask;
                     mask as i32
                 };
