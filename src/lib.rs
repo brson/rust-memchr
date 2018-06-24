@@ -552,7 +552,25 @@ pub mod avx2 {
         } else {
             // The difference in perf between 128 and 256 here is modest but
             // measurable
-            while i + 256 <= len {
+
+            // TODO consider using the fast search here
+            if let Some(r) = None
+                .or_else(|| cmp(q_x15, p, i, 00, c_align))
+                .or_else(|| cmp(q_x15, p, i, 32, c_align))
+                .or_else(|| cmp(q_x15, p, i, 64, c_align))
+                .or_else(|| cmp(q_x15, p, i, 96, c_align))
+                .or_else(|| cmp(q_x15, p, i, 128, c_align))
+                .or_else(|| cmp(q_x15, p, i, 160, c_align))
+                .or_else(|| cmp(q_x15, p, i, 196, c_align))
+                .or_else(|| cmp(q_x15, p, i, 224, c_align))
+            {
+                return Some(r);
+            }
+
+            i += 256;
+            let len_minus = len - 256;
+
+            while i <= len_minus {
 
                 let j = i;
                 let loadcmp = |o| {
