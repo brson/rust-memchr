@@ -555,40 +555,28 @@ pub mod avx2 {
             // The difference in perf between 128 and 256 here is modest but
             // measurable
             while i + 256 <= len {
-                /*let loadcmp = |o, v| {
-                    let x = load(p, i + o, c_align);
-                    let x = _mm256_cmpeq_epi8(v, q_x15);
+
+                let j = i;
+                let loadcmp = |o| {
+                    let x = load(p, j + o, c_align);
+                    let x = _mm256_cmpeq_epi8(x, q_x15);
                     x
                 };
-                let x0 = loadcmp(0, x0);
+
+                let x0 = loadcmp(0);
                 let x1 = loadcmp(32);
                 let x2 = loadcmp(64);
                 let x3 = loadcmp(96);
                 let x4 = loadcmp(128);
                 let x5 = loadcmp(160);
-                let x6 = loadcmp(192);*/
-
-                let x0 = load(p, i + 0, c_align);
-                let x0 = _mm256_cmpeq_epi8(x0, q_x15);
-                let x1 = load(p, i + 32, c_align);
-                let x1 = _mm256_cmpeq_epi8(x1, q_x15);
-                let x2 = load(p, i + 64, c_align);
-                let x2 = _mm256_cmpeq_epi8(x2, q_x15);
-                let x3 = load(p, i + 96, c_align);
-                let x3 = _mm256_cmpeq_epi8(x3, q_x15);
-                let x4 = load(p, i + 128, c_align);
-                let x4 = _mm256_cmpeq_epi8(x4, q_x15);
-                let x5 = load(p, i + 160, c_align);
-                let x5 = _mm256_cmpeq_epi8(x5, q_x15);
-                let x6 = load(p, i + 192, c_align);
-                let x6 = _mm256_cmpeq_epi8(x6, q_x15);
-                let x7 = load(p, i + 224, c_align);
-                let x7 = _mm256_cmpeq_epi8(x7, q_x15);
+                let x6 = loadcmp(192);
+                let x7 = loadcmp(224);
 
                 let sum_01_x8 = _mm256_or_si256(x0, x1);
                 let sum_23_x9 = _mm256_or_si256(x2, x3);
                 let sum_45_x10 = _mm256_or_si256(x4, x5);
                 let sum_67_x11 = _mm256_or_si256(x6, x7);
+
                 let sum_03_x12 = _mm256_or_si256(sum_01_x8, sum_23_x9);
                 let sum_05_x12 = _mm256_or_si256(sum_45_x10, sum_03_x12);
                 let sum_07_x12 = _mm256_or_si256(sum_67_x11, sum_05_x12);
@@ -604,27 +592,28 @@ pub mod avx2 {
                 // the overhead matters for early matches. Would be good to
                 // resolve.
 
+                #[inline(always)]
+                unsafe fn check_match(o: isize, sumv: __m256i,
+                                      v0: __m256i, v1: __m256i,
+                                      contains_needle: bool) -> Option<usize> {
+
+                    debug_assert!(!contains_needle || _mm256_movemask_epi8(sumv) != 0);
+
+                    let matches = _mm256_movemask_epi8(sumv);
+                    if contains_needle || matches != 0 {
+                        let matches_0 = _mm256_movemask_epi8(v0);
+                        if matches_0 != 0 {
+                            return off(o + 0, matches_0)
+                        };
+                        let matches_1 = _mm256_movemask_epi8(v1);
+                        debug_assert!(matches_1 != 0);
+                        return off(o + 32, matches_1);
+                    }
+                    None
+                }
+
                 let sum_07 = _mm256_movemask_epi8(sum_07_x12);
                 if sum_07 != 0 {
-
-                    #[inline(always)]
-                    unsafe fn check_match(o: isize, sumv: __m256i,
-                                          v0: __m256i, v1: __m256i,
-                                          contains_needle: bool) -> Option<usize> {
-                        debug_assert!(!contains_needle || _mm256_movemask_epi8(sumv) != 0);
-                        let matches = _mm256_movemask_epi8(sumv);
-                        if contains_needle || matches != 0 {
-                            let matches_0 = _mm256_movemask_epi8(v0);
-                            if matches_0 != 0 {
-                                return off(o + 0, matches_0)
-                            };
-                            let matches_1 = _mm256_movemask_epi8(v1);
-                            debug_assert!(matches_1 != 0);
-                            return off(o + 32, matches_1);
-                        }
-                        None
-                    }
-
                     let offset = None
                         .or_else(|| check_match(0, sum_01_x8, x0, x1, false))
                         .or_else(|| check_match(64, sum_23_x9, x2, x3, false))
