@@ -554,34 +554,29 @@ pub mod avx2 {
                 i += 128;
             }
         } else {
-            let ones_x14 = _mm256_set1_epi8(!0);
             while i + 128 <= len {
                 let o = i + 0;
                 let x0 = load(p, o, c_align);
                 let x0 = _mm256_cmpeq_epi8(x0, q_x15);
-                let x0 = _mm256_and_si256(x0, ones_x14);
 
                 let o = i + 32;
                 let x1 = load(p, o, c_align);
                 let x1 = _mm256_cmpeq_epi8(x1, q_x15);
-                let x1 = _mm256_and_si256(x1, ones_x14);
 
                 let o = i + 64;
                 let x2 = load(p, o, c_align);
                 let x2 = _mm256_cmpeq_epi8(x2, q_x15);
-                let x2 = _mm256_and_si256(x2, ones_x14);
 
                 let o = i + 96;
                 let x3 = load(p, o, c_align);
                 let x3 = _mm256_cmpeq_epi8(x3, q_x15);
-                let x3 = _mm256_and_si256(x3, ones_x14);
 
                 let sum_01_x8 = _mm256_or_si256(x0, x1);
                 let sum_23_x9 = _mm256_or_si256(x2, x3);
                 let sum_03_x10 = _mm256_or_si256(sum_01_x8, sum_23_x9);
 
                 let sum_03 = _mm256_movemask_epi8(sum_03_x10);
-                if unlikely(sum_03 != 0) {
+                if sum_03 != 0 {
                     let sum_01 = _mm256_movemask_epi8(sum_01_x8);
                     if sum_01 != 0 {
                         let sum_x0 = _mm256_movemask_epi8(x0);
