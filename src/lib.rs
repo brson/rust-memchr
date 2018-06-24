@@ -552,7 +552,7 @@ pub mod avx2 {
         // TODO consider expanding this to 320 bytes
         // TODO: Add tests for finding in haystack more than 256 bytes
 
-        let len_minus = len - 256;
+        let len_minus = len - 320;
 
         while i <= len_minus {
             let j = i;
@@ -562,6 +562,7 @@ pub mod avx2 {
                 x
             };
 
+            // TODO use remaining registers
             let x0 = loadcmp(0);
             let x1 = loadcmp(32);
             let x2 = loadcmp(64);
@@ -570,23 +571,30 @@ pub mod avx2 {
             let x5 = loadcmp(160);
             let x6 = loadcmp(192);
             let x7 = loadcmp(224);
+            let x8 = loadcmp(256);
 
             let sum_01_x8 = _mm256_or_si256(x0, x1);
             let sum_23_x9 = _mm256_or_si256(x2, x3);
             let sum_45_x10 = _mm256_or_si256(x4, x5);
             let sum_67_x11 = _mm256_or_si256(x6, x7);
 
-            let sum_03_x12 = _mm256_or_si256(sum_01_x8, sum_23_x9);
-            let sum_05_x12 = _mm256_or_si256(sum_45_x10, sum_03_x12);
-            let sum_07_x12 = _mm256_or_si256(sum_67_x11, sum_05_x12);
+            let sum_init_x12 = _mm256_setzero_si256();
+            let sum_01_x12 = _mm256_or_si256(sum_init_x12, sum_01_x8);
+            let sum_03_x12 = _mm256_or_si256(sum_01_x12, sum_23_x9);
+            let sum_05_x12 = _mm256_or_si256(sum_03_x12, sum_45_x10);
+            let sum_07_x12 = _mm256_or_si256(sum_05_x12, sum_67_x11);
+            let sum_08_x12 = _mm256_or_si256(sum_07_x12, x8);
 
             // Just to make it clear we're done with these
             drop(sum_03_x12);
             drop(sum_05_x12);
+            drop(sum_07_x12);
 
-            let sum_07 = _mm256_movemask_epi8(sum_07_x12);
-            if sum_07 == 0 {
-                i += 256;
+            // Seems to be slightly faster than vptest, though
+            // it uses one more instruction
+            let sum = _mm256_movemask_epi8(sum_08_x12);
+            if sum == 0 {
+                i += 320;
                 continue;
             }
 
@@ -604,6 +612,10 @@ pub mod avx2 {
 
                 debug_assert!(!contains_needle || _mm256_movemask_epi8(sumv) != 0);
 
+                // TODO try using vptest here to get rid of crummy
+                // codegen
+                // NB: This movemask will be optimized away when contains_needle
+                // is true.
                 let matches = _mm256_movemask_epi8(sumv);
                 if contains_needle || matches != 0 {
                     let matches_0 = _mm256_movemask_epi8(v0);
@@ -621,7 +633,12 @@ pub mod avx2 {
                 .or_else(|| check_match(i + 0, sum_01_x8, x0, x1, false))
                 .or_else(|| check_match(i + 64, sum_23_x9, x2, x3, false))
                 .or_else(|| check_match(i + 128, sum_45_x10, x4, x5, false))
-                .or_else(|| check_match(i + 192, sum_67_x11, x6, x7, true));
+                .or_else(|| check_match(i + 192, sum_67_x11, x6, x7, false))
+                .or_else(|| {
+                    let matches = _mm256_movemask_epi8(x8);
+                    debug_assert!(matches != 0);
+                    return off(i + 256, matches);
+                });
 
             debug_assert!(offset.is_some());
             return offset;
