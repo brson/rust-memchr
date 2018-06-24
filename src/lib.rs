@@ -568,6 +568,7 @@ pub mod avx2 {
             }
 
             i += 256;
+
             let len_minus = len - 256;
 
             while i <= len_minus {
@@ -609,7 +610,7 @@ pub mod avx2 {
 
                 // NB: The assembly code for resolving the match is expected to
                 // be straightforword (looking just much as the intrinsics
-                // read), but LLVM is spewing some simd vomit that I don't
+                // read), but LLVM is spewing some AVX vomit that I don't
                 // understand. For long searches that doesn't matter much, but
                 // the overhead matters for early matches. Would be good to
                 // resolve.
