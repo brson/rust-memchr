@@ -438,7 +438,7 @@ pub mod avx2 {
 
         let mut i = 0;
 
-        let q = _mm256_set1_epi8(needle as i8);
+        let q_x15 = _mm256_set1_epi8(needle as i8);
 
         #[inline]
         unsafe fn off(offset: isize, bitmask: i32) -> Option<usize> {
@@ -462,7 +462,7 @@ pub mod avx2 {
                 i -= overalignment;
                 let o = i + 0;
                 let x = _mm256_load_si256(p.offset(o) as *const __m256i);
-                let r = _mm256_cmpeq_epi8(x, q);
+                let r = _mm256_cmpeq_epi8(x, q_x15);
                 let z = _mm256_movemask_epi8(r);
                 let garbage_mask = {
                     debug_assert!(overalignment < 32);
@@ -487,7 +487,7 @@ pub mod avx2 {
                 if i + 32 > len {
                     let o = i + 0;
                     let x = _mm256_load_si256(p.offset(o) as *const __m256i);
-                    let r = _mm256_cmpeq_epi8(x, q);
+                    let r = _mm256_cmpeq_epi8(x, q_x15);
                     let z = _mm256_movemask_epi8(r);
                     let extra_bytes = o as usize + 32 - len as usize;
                     let garbage_mask = {
@@ -538,13 +538,15 @@ pub mod avx2 {
 
         // TODO consider stream_load
         // consider testc_si256 / testnzc_si256 / testz
+        // investigate permute + bmi2 pext
+        // https://stackoverflow.com/questions/36932240/avx2-what-is-the-most-efficient-way-to-pack-left-based-on-a-mask
         if c_simple_core {
             while i + 128 <= len {
                 if let Some(r) = None
-                    .or_else(|| cmp(q, p, i, 00, c_align))
-                    .or_else(|| cmp(q, p, i, 32, c_align))
-                    .or_else(|| cmp(q, p, i, 64, c_align))
-                    .or_else(|| cmp(q, p, i, 96, c_align))
+                    .or_else(|| cmp(q_x15, p, i, 00, c_align))
+                    .or_else(|| cmp(q_x15, p, i, 32, c_align))
+                    .or_else(|| cmp(q_x15, p, i, 64, c_align))
+                    .or_else(|| cmp(q_x15, p, i, 96, c_align))
                 {
                     return Some(r);
                 }
@@ -552,19 +554,66 @@ pub mod avx2 {
                 i += 128;
             }
         } else {
+            let ones_x14 = _mm256_set1_epi8(!0);
             while i + 128 <= len {
                 let o = i + 0;
-				let x0 = load(p, o, c_align);
-                let x0 = _mm256_cmpeq_epi8(x0, q);
-				//let x0 = _mm256_and_si256(x0, q
+                let x0 = load(p, o, c_align);
+                let x0 = _mm256_cmpeq_epi8(x0, q_x15);
+                let x0 = _mm256_and_si256(x0, ones_x14);
 
+                let o = i + 32;
+                let x1 = load(p, o, c_align);
+                let x1 = _mm256_cmpeq_epi8(x1, q_x15);
+                let x1 = _mm256_and_si256(x1, ones_x14);
 
-                i += 128;
+                let o = i + 64;
+                let x2 = load(p, o, c_align);
+                let x2 = _mm256_cmpeq_epi8(x2, q_x15);
+                let x2 = _mm256_and_si256(x2, ones_x14);
+
+                let o = i + 96;
+                let x3 = load(p, o, c_align);
+                let x3 = _mm256_cmpeq_epi8(x3, q_x15);
+                let x3 = _mm256_and_si256(x3, ones_x14);
+
+                let sum_01_x8 = _mm256_or_si256(x0, x1);
+                let sum_23_x9 = _mm256_or_si256(x2, x3);
+                let sum_03_x10 = _mm256_or_si256(sum_01_x8, sum_23_x9);
+
+                let sum_03 = _mm256_movemask_epi8(sum_03_x10);
+                if unlikely(sum_03 != 0) {
+                    let sum_01 = _mm256_movemask_epi8(sum_01_x8);
+                    if sum_01 != 0 {
+                        let sum_x0 = _mm256_movemask_epi8(x0);
+                        if sum_x0 != 0 {
+                            return off(i + 0, sum_x0);
+                        }
+
+                        let sum_x1 = _mm256_movemask_epi8(x1);
+                        debug_assert!(sum_x1 != 0);
+                        return off(i + 32, sum_x1);
+                    } else {
+					    if cfg!(debug) || cfg!(test) {
+                            let sum_23 = _mm256_movemask_epi8(sum_23_x9);
+						    assert!(sum_23 != 0);
+						}
+                        let sum_x2 = _mm256_movemask_epi8(x2);
+                        if sum_x2 != 0 {
+                            return off(i + 64, sum_x2);
+                        }
+
+                        let sum_x3 = _mm256_movemask_epi8(x3);
+                        debug_assert!(sum_x3 != 0);
+                        return off(i + 96, sum_x3);
+					}
+                }
+
+                i += 64;
             }
         }
 
         while i + 32 <= len  {
-            if let Some(r) = cmp(q, p, i, 0, c_align) {
+            if let Some(r) = cmp(q_x15, p, i, 0, c_align) {
                 return Some(r);
             }
 
@@ -575,7 +624,7 @@ pub mod avx2 {
             if i < len {
                 let o = i + 0;
                 let x = _mm256_load_si256(p.offset(o) as *const __m256i);
-                let r = _mm256_cmpeq_epi8(x, q);
+                let r = _mm256_cmpeq_epi8(x, q_x15);
                 let z = _mm256_movemask_epi8(r);
                 let extra_bytes = o as usize + 32 - len as usize;
                 let garbage_mask = {
@@ -602,7 +651,7 @@ pub mod avx2 {
 
                 let o = i + 0;
                 let x = _mm256_load_si256(p.offset(o) as *const __m256i);
-                let r = _mm256_cmpeq_epi8(x, q);
+                let r = _mm256_cmpeq_epi8(x, q_x15);
                 let z = _mm256_movemask_epi8(r);
                 let garbage_mask = {
                     debug_assert!(overalignment < 32);
@@ -633,7 +682,7 @@ pub mod avx2 {
                 if i + 32 > len {
                     let o = i + 0;
                     let x = _mm256_load_si256(p.offset(o) as *const __m256i);
-                    let r = _mm256_cmpeq_epi8(x, q);
+                    let r = _mm256_cmpeq_epi8(x, q_x15);
                     let z = _mm256_movemask_epi8(r);
                     let extra_bytes = o as usize + 32 - len as usize;
                     let garbage_mask = {
