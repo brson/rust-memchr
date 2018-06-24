@@ -544,102 +544,83 @@ pub mod avx2 {
         // consider testc_si256 / testnzc_si256 / testz
         // investigate permute + bmi2 pext
         // https://stackoverflow.com/questions/36932240/avx2-what-is-the-most-efficient-way-to-pack-left-based-on-a-mask
-        if i + 256 <= len {
-            // The difference in perf between 128 and 256 here is modest but
-            // measurable.
-            // TODO consider expanding this to 320 bytes
+        // The difference in perf between 128 and 256 here is modest but
+        // measurable.
+        // TODO consider expanding this to 320 bytes
 
-            // TODO consider using the fast search here
-            // TODO consider using unlikley to get better codegen
-            if let Some(r) = None
-                .or_else(|| cmp(q_x15, p, i, 0))
-                .or_else(|| cmp(q_x15, p, i, 32))
-                .or_else(|| cmp(q_x15, p, i, 64))
-                .or_else(|| cmp(q_x15, p, i, 96))
-                .or_else(|| cmp(q_x15, p, i, 128))
-                .or_else(|| cmp(q_x15, p, i, 160))
-                .or_else(|| cmp(q_x15, p, i, 192))
-                .or_else(|| cmp(q_x15, p, i, 224))
-            {
-                return Some(r);
+        let len_minus = len - 256;
+
+        while i <= len_minus {
+            let j = i;
+            let loadcmp = |o| {
+                let x = load(p, j + o);
+                let x = _mm256_cmpeq_epi8(x, q_x15);
+                x
+            };
+
+            let x0 = loadcmp(0);
+            let x1 = loadcmp(32);
+            let x2 = loadcmp(64);
+            let x3 = loadcmp(96);
+            let x4 = loadcmp(128);
+            let x5 = loadcmp(160);
+            let x6 = loadcmp(192);
+            let x7 = loadcmp(224);
+
+            let sum_01_x8 = _mm256_or_si256(x0, x1);
+            let sum_23_x9 = _mm256_or_si256(x2, x3);
+            let sum_45_x10 = _mm256_or_si256(x4, x5);
+            let sum_67_x11 = _mm256_or_si256(x6, x7);
+
+            let sum_03_x12 = _mm256_or_si256(sum_01_x8, sum_23_x9);
+            let sum_05_x12 = _mm256_or_si256(sum_45_x10, sum_03_x12);
+            let sum_07_x12 = _mm256_or_si256(sum_67_x11, sum_05_x12);
+
+            // Just to make it clear we're done with these
+            drop(sum_03_x12);
+            drop(sum_05_x12);
+
+            let sum_07 = _mm256_movemask_epi8(sum_07_x12);
+            if sum_07 == 0 {
+                i += 256;
+                continue;
             }
 
-            i += 256;
+            // NB: The assembly code for resolving the match is expected to
+            // be straightforword (looking just much as the intrinsics
+            // read), but LLVM is spewing some AVX vomit that I don't
+            // understand. For long searches that doesn't matter much, but
+            // the overhead matters for early matches. Would be good to
+            // resolve.
 
-            let len_minus = len - 256;
+            #[inline(always)]
+            unsafe fn check_match(o: isize, sumv: __m256i,
+                                  v0: __m256i, v1: __m256i,
+                                  contains_needle: bool) -> Option<usize> {
 
-            while i <= len_minus {
-                let j = i;
-                let loadcmp = |o| {
-                    let x = load(p, j + o);
-                    let x = _mm256_cmpeq_epi8(x, q_x15);
-                    x
-                };
+                debug_assert!(!contains_needle || _mm256_movemask_epi8(sumv) != 0);
 
-                let x0 = loadcmp(0);
-                let x1 = loadcmp(32);
-                let x2 = loadcmp(64);
-                let x3 = loadcmp(96);
-                let x4 = loadcmp(128);
-                let x5 = loadcmp(160);
-                let x6 = loadcmp(192);
-                let x7 = loadcmp(224);
-
-                let sum_01_x8 = _mm256_or_si256(x0, x1);
-                let sum_23_x9 = _mm256_or_si256(x2, x3);
-                let sum_45_x10 = _mm256_or_si256(x4, x5);
-                let sum_67_x11 = _mm256_or_si256(x6, x7);
-
-                let sum_03_x12 = _mm256_or_si256(sum_01_x8, sum_23_x9);
-                let sum_05_x12 = _mm256_or_si256(sum_45_x10, sum_03_x12);
-                let sum_07_x12 = _mm256_or_si256(sum_67_x11, sum_05_x12);
-
-                // Just to make it clear we're done with these
-                drop(sum_03_x12);
-                drop(sum_05_x12);
-
-                let sum_07 = _mm256_movemask_epi8(sum_07_x12);
-                if sum_07 == 0 {
-                    i += 256;
-                    continue;
+                let matches = _mm256_movemask_epi8(sumv);
+                if contains_needle || matches != 0 {
+                    let matches_0 = _mm256_movemask_epi8(v0);
+                    if matches_0 != 0 {
+                        return off(o + 0, matches_0)
+                    };
+                    let matches_1 = _mm256_movemask_epi8(v1);
+                    debug_assert!(matches_1 != 0);
+                    return off(o + 32, matches_1);
                 }
-
-                // NB: The assembly code for resolving the match is expected to
-                // be straightforword (looking just much as the intrinsics
-                // read), but LLVM is spewing some AVX vomit that I don't
-                // understand. For long searches that doesn't matter much, but
-                // the overhead matters for early matches. Would be good to
-                // resolve.
-
-                #[inline(always)]
-                unsafe fn check_match(o: isize, sumv: __m256i,
-                                      v0: __m256i, v1: __m256i,
-                                      contains_needle: bool) -> Option<usize> {
-
-                    debug_assert!(!contains_needle || _mm256_movemask_epi8(sumv) != 0);
-
-                    let matches = _mm256_movemask_epi8(sumv);
-                    if contains_needle || matches != 0 {
-                        let matches_0 = _mm256_movemask_epi8(v0);
-                        if matches_0 != 0 {
-                            return off(o + 0, matches_0)
-                        };
-                        let matches_1 = _mm256_movemask_epi8(v1);
-                        debug_assert!(matches_1 != 0);
-                        return off(o + 32, matches_1);
-                    }
-                    None
-                }
-
-                let offset = None
-                    .or_else(|| check_match(0, sum_01_x8, x0, x1, false))
-                    .or_else(|| check_match(64, sum_23_x9, x2, x3, false))
-                    .or_else(|| check_match(128, sum_45_x10, x4, x5, false))
-                    .or_else(|| check_match(192, sum_67_x11, x6, x7, true));
-
-                debug_assert!(offset.is_some());
-                return offset;
+                None
             }
+
+            let offset = None
+                .or_else(|| check_match(0, sum_01_x8, x0, x1, false))
+                .or_else(|| check_match(64, sum_23_x9, x2, x3, false))
+                .or_else(|| check_match(128, sum_45_x10, x4, x5, false))
+                .or_else(|| check_match(192, sum_67_x11, x6, x7, true));
+
+            debug_assert!(offset.is_some());
+            return offset;
         }
 
         while i + 32 <= len  {
