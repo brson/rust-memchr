@@ -549,11 +549,13 @@ pub mod avx2 {
 
                 i += 128;
             }
-        } else {
+        } else if i + 256 <= len {
             // The difference in perf between 128 and 256 here is modest but
             // measurable
 
             // TODO consider using the fast search here
+            // TODO consider using unlikley to get better
+            // codegen
             if let Some(r) = None
                 .or_else(|| cmp(q_x15, p, i, 0, c_align))
                 .or_else(|| cmp(q_x15, p, i, 32, c_align))
@@ -572,7 +574,6 @@ pub mod avx2 {
             let len_minus = len - 256;
 
             while i <= len_minus {
-
                 let j = i;
                 let loadcmp = |o| {
                     let x = load(p, j + o, c_align);
