@@ -539,7 +539,7 @@ pub mod avx2 {
         if c_simple_core {
             while i + 128 <= len {
                 if let Some(r) = None
-                    .or_else(|| cmp(q_x15, p, i, 00, c_align))
+                    .or_else(|| cmp(q_x15, p, i, 0, c_align))
                     .or_else(|| cmp(q_x15, p, i, 32, c_align))
                     .or_else(|| cmp(q_x15, p, i, 64, c_align))
                     .or_else(|| cmp(q_x15, p, i, 96, c_align))
@@ -555,13 +555,13 @@ pub mod avx2 {
 
             // TODO consider using the fast search here
             if let Some(r) = None
-                .or_else(|| cmp(q_x15, p, i, 00, c_align))
+                .or_else(|| cmp(q_x15, p, i, 0, c_align))
                 .or_else(|| cmp(q_x15, p, i, 32, c_align))
                 .or_else(|| cmp(q_x15, p, i, 64, c_align))
                 .or_else(|| cmp(q_x15, p, i, 96, c_align))
                 .or_else(|| cmp(q_x15, p, i, 128, c_align))
                 .or_else(|| cmp(q_x15, p, i, 160, c_align))
-                .or_else(|| cmp(q_x15, p, i, 196, c_align))
+                .or_else(|| cmp(q_x15, p, i, 192, c_align))
                 .or_else(|| cmp(q_x15, p, i, 224, c_align))
             {
                 return Some(r);
