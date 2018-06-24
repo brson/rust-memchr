@@ -433,6 +433,8 @@ pub mod avx2 {
 
         if haystack.is_empty() { return None }
 
+        debug_assert!(haystack.len() <= isize::max_value() as usize);
+
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
 
