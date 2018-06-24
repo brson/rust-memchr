@@ -552,6 +552,8 @@ pub mod avx2 {
                 i += 128;
             }
         } else {
+            // The difference in perf between 128 and 256 here is modest but
+            // measurable
             while i + 256 <= len {
                 let x0 = load(p, i + 0, c_align);
                 let x0 = _mm256_cmpeq_epi8(x0, q_x15);
