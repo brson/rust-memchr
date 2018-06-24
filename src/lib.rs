@@ -547,9 +547,6 @@ pub mod avx2 {
         // consider testc_si256 / testnzc_si256 / testz
         // investigate permute + bmi2 pext
         // https://stackoverflow.com/questions/36932240/avx2-what-is-the-most-efficient-way-to-pack-left-based-on-a-mask
-        // The difference in perf between 128 and 256 here is modest but
-        // measurable.
-        // TODO consider expanding this to 320 bytes
         // TODO: Add tests for finding in haystack more than 256 bytes
 
         let len_minus = len - 320;
