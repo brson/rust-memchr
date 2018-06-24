@@ -451,8 +451,6 @@ pub mod avx2 {
         let c_align = false;
         let c_simple_core = false;
 
-        // TODO: Compare aligned perf to unaligned perf and move
-        // this to the final step if they are the same.
         if c_align {
             let align_mask = 32 - 1;
             let overalignment = (p as usize & align_mask) as isize;
