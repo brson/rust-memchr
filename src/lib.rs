@@ -668,6 +668,8 @@ pub mod avx2 {
         } else /* !c_align */ {
             if i < len {
 
+                debug_assert!(i + 32 > len);
+
                 let align_mask = 32 - 1;
                 let overalignment = (p.offset(i) as usize & align_mask) as isize;
                 i -= overalignment;
@@ -702,26 +704,26 @@ pub mod avx2 {
                     return None;
                 }
 
-                if i + 32 > len {
-                    let o = i + 0;
-                    let x = _mm256_load_si256(p.offset(o) as *const __m256i);
-                    let r = _mm256_cmpeq_epi8(x, q_x15);
-                    let z = _mm256_movemask_epi8(r);
-                    let extra_bytes = o as usize + 32 - len as usize;
-                    let garbage_mask = {
-                        let ones = u32::max_value();
-                        let mask = ones << (32 - extra_bytes);
-                        let mask = !mask;
-                        mask as i32
-                    };
-                    let z = z & garbage_mask;
-                    if z != 0 {
-                        return off(o, z);
-                    }
+                debug_assert!(i + 32 > len);
 
-                    if cfg!(debug) || cfg!(test) {
-                        i += 32 - extra_bytes as isize;
-                    }
+                let o = i + 0;
+                let x = _mm256_load_si256(p.offset(o) as *const __m256i);
+                let r = _mm256_cmpeq_epi8(x, q_x15);
+                let z = _mm256_movemask_epi8(r);
+                let extra_bytes = o as usize + 32 - len as usize;
+                let garbage_mask = {
+                    let ones = u32::max_value();
+                    let mask = ones << (32 - extra_bytes);
+                    let mask = !mask;
+                    mask as i32
+                };
+                let z = z & garbage_mask;
+                if z != 0 {
+                    return off(o, z);
+                }
+
+                if cfg!(debug) || cfg!(test) {
+                    i += 32 - extra_bytes as isize;
                 }
             }
         }
