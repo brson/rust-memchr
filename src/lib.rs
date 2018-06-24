@@ -559,7 +559,6 @@ pub mod avx2 {
                 x
             };
 
-            // TODO use remaining registers
             let x0 = loadcmp(0);
             let x1 = loadcmp(32);
             let x2 = loadcmp(64);
