@@ -447,27 +447,31 @@ pub mod avx2 {
             Some((offset + cttz_nonzero(bitmask) as isize) as usize)
         }
 
-        // Config options.
+        if len < 32 {
+            // TODO share this code with the footer
 
-        // Doing unaligned loads really doesn't affect perf on AVX2
-        let c_align = false;
-
-        if c_align {
             let align_mask = 32 - 1;
-            let overalignment = (p as usize & align_mask) as isize;
-            let aligned = overalignment == 0;
+            let overalignment = (p.offset(i) as usize & align_mask) as isize;
+            debug_assert!(overalignment < 32);
 
-            if !aligned {
-                i -= overalignment;
+            let readable_before = 32 - overalignment;
+            let good_bytes_before = ::std::cmp::min(len, readable_before);
+            let good_bytes_after = len - good_bytes_before;
+            //println!("gbb {} gba {}", good_bytes_before, good_bytes_after);
+
+            let simd_threshold = 0;
+
+            i -= overalignment;
+
+            if good_bytes_before > simd_threshold {
                 let o = i + 0;
                 let x = _mm256_load_si256(p.offset(o) as *const __m256i);
                 let r = _mm256_cmpeq_epi8(x, q_x15);
                 let z = _mm256_movemask_epi8(r);
                 let garbage_mask = {
                     debug_assert!(overalignment < 32);
-                    let max_hi_bytes = ::std::cmp::min(len, 31);
                     let ones = u32::max_value();
-                    let mask = ones << max_hi_bytes;
+                    let mask = ones << good_bytes_before;
                     let mask = !mask;
                     let mask = mask << overalignment;
                     mask as i32
@@ -476,131 +480,58 @@ pub mod avx2 {
                 if z != 0 {
                     return off(o, z);
                 }
-
-                i += 32;
-
-                if i >= len {
-                    return None;
-                }
-
-                if i + 32 > len {
-                    let o = i + 0;
-                    let x = _mm256_load_si256(p.offset(o) as *const __m256i);
-                    let r = _mm256_cmpeq_epi8(x, q_x15);
-                    let z = _mm256_movemask_epi8(r);
-                    let extra_bytes = o as usize + 32 - len as usize;
-                    let garbage_mask = {
-                        let ones = u32::max_value();
-                        let mask = ones << (32 - extra_bytes);
-                        let mask = !mask;
-                        mask as i32
-                    };
-                    let z = z & garbage_mask;
-                    if z != 0 {
-                        return off(o, z);
-                    }
-
-                    if cfg!(debug) || cfg!(test) {
-                        i += 32 - extra_bytes as isize;
-                    }
-
-                    debug_assert_eq!(i, len);
-
-                    return None;
-                }
             }
-        } else /* !c_align */ {
-            if len < 32 {
-                // TODO share this code with the footer
 
-                let align_mask = 32 - 1;
-                let overalignment = (p.offset(i) as usize & align_mask) as isize;
-                debug_assert!(overalignment < 32);
+            i += 32;
 
-                let readable_before = 32 - overalignment;
-                let good_bytes_before = ::std::cmp::min(len, readable_before);
-                let good_bytes_after = len - good_bytes_before;
-                //println!("gbb {} gba {}", good_bytes_before, good_bytes_after);
-
-                let simd_threshold = 0;
-
-                i -= overalignment;
-
-                if good_bytes_before > simd_threshold {
-                    let o = i + 0;
-                    let x = _mm256_load_si256(p.offset(o) as *const __m256i);
-                    let r = _mm256_cmpeq_epi8(x, q_x15);
-                    let z = _mm256_movemask_epi8(r);
-                    let garbage_mask = {
-                        debug_assert!(overalignment < 32);
-                        let ones = u32::max_value();
-                        let mask = ones << good_bytes_before;
-                        let mask = !mask;
-                        let mask = mask << overalignment;
-                        mask as i32
-                    };
-                    let z = z & garbage_mask;
-                    if z != 0 {
-                        return off(o, z);
-                    }
-                }
-
-                i += 32;
-
-                if i >= len {
-                    if cfg!(debug) || cfg!(test) {
-                        i += overalignment;
-                        i += len - i;
-                    }
-
-                    debug_assert_eq!(i, len);
-                    return None;
-                }
-
-                debug_assert!(i + 32 > len);
-
-                // FIXME This is always true while simd_threshold == 0
-                if good_bytes_after > simd_threshold {
-                    let o = i + 0;
-                    let x = _mm256_load_si256(p.offset(o) as *const __m256i);
-                    let r = _mm256_cmpeq_epi8(x, q_x15);
-                    let z = _mm256_movemask_epi8(r);
-                    let garbage_mask = {
-                        let ones = u32::max_value();
-                        let mask = ones << good_bytes_after;
-                        let mask = !mask;
-                        mask as i32
-                    };
-                    let z = z & garbage_mask;
-                    if z != 0 {
-                        return off(o, z);
-                    }
-                }
-
+            if i >= len {
                 if cfg!(debug) || cfg!(test) {
-                    i += good_bytes_after;
+                    i += overalignment;
+                    i += len - i;
                 }
 
                 debug_assert_eq!(i, len);
-
                 return None;
             }
-        }
 
-        #[inline(always)]
-        unsafe fn load(p: *const u8, o: isize, c_align: bool) -> __m256i {
-            if c_align {
-                _mm256_load_si256(p.offset(o) as *const __m256i)
-            } else {
-                _mm256_loadu_si256(p.offset(o) as *const __m256i)
+            debug_assert!(i + 32 > len);
+
+            // FIXME This is always true while simd_threshold == 0
+            if good_bytes_after > simd_threshold {
+                let o = i + 0;
+                let x = _mm256_load_si256(p.offset(o) as *const __m256i);
+                let r = _mm256_cmpeq_epi8(x, q_x15);
+                let z = _mm256_movemask_epi8(r);
+                let garbage_mask = {
+                    let ones = u32::max_value();
+                    let mask = ones << good_bytes_after;
+                    let mask = !mask;
+                    mask as i32
+                };
+                let z = z & garbage_mask;
+                if z != 0 {
+                    return off(o, z);
+                }
             }
+
+            if cfg!(debug) || cfg!(test) {
+                i += good_bytes_after;
+            }
+
+            debug_assert_eq!(i, len);
+
+            return None;
         }
 
         #[inline(always)]
-        unsafe fn cmp(q: __m256i, p: *const u8, i: isize, o: isize,
-                      c_align: bool) -> Option<usize> {
+        unsafe fn load(p: *const u8, o: isize) -> __m256i {
+            _mm256_loadu_si256(p.offset(o) as *const __m256i)
+        }
+
+        #[inline(always)]
+        unsafe fn cmp(q: __m256i, p: *const u8, i: isize, o: isize) -> Option<usize> {
             let o = i + o;
-            let x = load(p, o, c_align);
+            let x = load(p, o);
             let r = _mm256_cmpeq_epi8(x, q);
             let z = _mm256_movemask_epi8(r);
             if z != 0 {
@@ -621,14 +552,14 @@ pub mod avx2 {
             // TODO consider using the fast search here
             // TODO consider using unlikley to get better codegen
             if let Some(r) = None
-                .or_else(|| cmp(q_x15, p, i, 0, c_align))
-                .or_else(|| cmp(q_x15, p, i, 32, c_align))
-                .or_else(|| cmp(q_x15, p, i, 64, c_align))
-                .or_else(|| cmp(q_x15, p, i, 96, c_align))
-                .or_else(|| cmp(q_x15, p, i, 128, c_align))
-                .or_else(|| cmp(q_x15, p, i, 160, c_align))
-                .or_else(|| cmp(q_x15, p, i, 192, c_align))
-                .or_else(|| cmp(q_x15, p, i, 224, c_align))
+                .or_else(|| cmp(q_x15, p, i, 0))
+                .or_else(|| cmp(q_x15, p, i, 32))
+                .or_else(|| cmp(q_x15, p, i, 64))
+                .or_else(|| cmp(q_x15, p, i, 96))
+                .or_else(|| cmp(q_x15, p, i, 128))
+                .or_else(|| cmp(q_x15, p, i, 160))
+                .or_else(|| cmp(q_x15, p, i, 192))
+                .or_else(|| cmp(q_x15, p, i, 224))
             {
                 return Some(r);
             }
@@ -640,7 +571,7 @@ pub mod avx2 {
             while i <= len_minus {
                 let j = i;
                 let loadcmp = |o| {
-                    let x = load(p, j + o, c_align);
+                    let x = load(p, j + o);
                     let x = _mm256_cmpeq_epi8(x, q_x15);
                     x
                 };
@@ -712,95 +643,71 @@ pub mod avx2 {
         }
 
         while i + 32 <= len  {
-            if let Some(r) = cmp(q_x15, p, i, 0, c_align) {
+            if let Some(r) = cmp(q_x15, p, i, 0) {
                 return Some(r);
             }
 
             i += 32;
         }
 
-        if c_align {
-            if i < len {
-                let o = i + 0;
-                let x = _mm256_load_si256(p.offset(o) as *const __m256i);
-                let r = _mm256_cmpeq_epi8(x, q_x15);
-                let z = _mm256_movemask_epi8(r);
-                let extra_bytes = o as usize + 32 - len as usize;
-                let garbage_mask = {
-                    let ones = u32::max_value();
-                    let mask = ones << (32 - extra_bytes);
-                    let mask = !mask;
-                    mask as i32
-                };
-                let z = z & garbage_mask;
-                if z != 0 {
-                    return off(o, z);
-                }
+        if i < len {
 
-                if cfg!(debug) || cfg!(test) {
-                    i += 32 - (extra_bytes as isize);
-                }
+            debug_assert!(i + 32 > len);
+
+            let align_mask = 32 - 1;
+            let overalignment = (p.offset(i) as usize & align_mask) as isize;
+            i -= overalignment;
+
+            let o = i + 0;
+            let x = _mm256_load_si256(p.offset(o) as *const __m256i);
+            let r = _mm256_cmpeq_epi8(x, q_x15);
+            let z = _mm256_movemask_epi8(r);
+            let garbage_mask = {
+                debug_assert!(overalignment < 32);
+                let max_hi_bytes = ::std::cmp::min(len - (i + overalignment), 31);
+                let ones = u32::max_value();
+                let mask = ones << max_hi_bytes;
+                let mask = !mask;
+                let mask = mask << overalignment;
+                mask as i32
+            };
+            let z = z & garbage_mask;
+            if z != 0 {
+                return off(o, z);
             }
-        } else /* !c_align */ {
-            if i < len {
 
-                debug_assert!(i + 32 > len);
+            i += 32;
 
-                let align_mask = 32 - 1;
-                let overalignment = (p.offset(i) as usize & align_mask) as isize;
-                i -= overalignment;
-
-                let o = i + 0;
-                let x = _mm256_load_si256(p.offset(o) as *const __m256i);
-                let r = _mm256_cmpeq_epi8(x, q_x15);
-                let z = _mm256_movemask_epi8(r);
-                let garbage_mask = {
-                    debug_assert!(overalignment < 32);
-                    let max_hi_bytes = ::std::cmp::min(len - (i + overalignment), 31);
-                    let ones = u32::max_value();
-                    let mask = ones << max_hi_bytes;
-                    let mask = !mask;
-                    let mask = mask << overalignment;
-                    mask as i32
-                };
-                let z = z & garbage_mask;
-                if z != 0 {
-                    return off(o, z);
-                }
-
-                i += 32;
-
-                if i >= len {
-                    if cfg!(debug) || cfg!(test) {
-                        i += overalignment;
-                        i += len - i;
-                    }
-
-                    debug_assert_eq!(i, len);
-                    return None;
-                }
-
-                debug_assert!(i + 32 > len);
-
-                let o = i + 0;
-                let x = _mm256_load_si256(p.offset(o) as *const __m256i);
-                let r = _mm256_cmpeq_epi8(x, q_x15);
-                let z = _mm256_movemask_epi8(r);
-                let extra_bytes = o as usize + 32 - len as usize;
-                let garbage_mask = {
-                    let ones = u32::max_value();
-                    let mask = ones << (32 - extra_bytes);
-                    let mask = !mask;
-                    mask as i32
-                };
-                let z = z & garbage_mask;
-                if z != 0 {
-                    return off(o, z);
-                }
-
+            if i >= len {
                 if cfg!(debug) || cfg!(test) {
-                    i += 32 - extra_bytes as isize;
+                    i += overalignment;
+                    i += len - i;
                 }
+
+                debug_assert_eq!(i, len);
+                return None;
+            }
+
+            debug_assert!(i + 32 > len);
+
+            let o = i + 0;
+            let x = _mm256_load_si256(p.offset(o) as *const __m256i);
+            let r = _mm256_cmpeq_epi8(x, q_x15);
+            let z = _mm256_movemask_epi8(r);
+            let extra_bytes = o as usize + 32 - len as usize;
+            let garbage_mask = {
+                let ones = u32::max_value();
+                let mask = ones << (32 - extra_bytes);
+                let mask = !mask;
+                mask as i32
+            };
+            let z = z & garbage_mask;
+            if z != 0 {
+                return off(o, z);
+            }
+
+            if cfg!(debug) || cfg!(test) {
+                i += 32 - extra_bytes as isize;
             }
         }
 
