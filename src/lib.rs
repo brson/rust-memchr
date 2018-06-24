@@ -585,8 +585,14 @@ pub mod avx2 {
                 drop(sum_03_x12);
                 drop(sum_05_x12);
 
+                let sum_07 = _mm256_movemask_epi8(sum_07_x12);
+                if sum_07 == 0 {
+                    i += 256;
+                    continue;
+                }
+
                 // NB: The assembly code for resolving the match is expected to
-                // be straightforword (looking pretty much as the intrinsics
+                // be straightforword (looking just much as the intrinsics
                 // read), but LLVM is spewing some simd vomit that I don't
                 // understand. For long searches that doesn't matter much, but
                 // the overhead matters for early matches. Would be good to
@@ -612,19 +618,14 @@ pub mod avx2 {
                     None
                 }
 
-                let sum_07 = _mm256_movemask_epi8(sum_07_x12);
-                if sum_07 != 0 {
-                    let offset = None
-                        .or_else(|| check_match(0, sum_01_x8, x0, x1, false))
-                        .or_else(|| check_match(64, sum_23_x9, x2, x3, false))
-                        .or_else(|| check_match(128, sum_45_x10, x4, x5, false))
-                        .or_else(|| check_match(192, sum_67_x11, x6, x7, true));
+                let offset = None
+                    .or_else(|| check_match(0, sum_01_x8, x0, x1, false))
+                    .or_else(|| check_match(64, sum_23_x9, x2, x3, false))
+                    .or_else(|| check_match(128, sum_45_x10, x4, x5, false))
+                    .or_else(|| check_match(192, sum_67_x11, x6, x7, true));
 
-                    debug_assert!(offset.is_some());
-                    return offset;
-                }
-
-                i += 256;
+                debug_assert!(offset.is_some());
+                return offset;
             }
         }
 
