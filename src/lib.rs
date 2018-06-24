@@ -550,6 +550,7 @@ pub mod avx2 {
         // The difference in perf between 128 and 256 here is modest but
         // measurable.
         // TODO consider expanding this to 320 bytes
+        // TODO: Add tests for finding in haystack more than 256 bytes
 
         let len_minus = len - 256;
 
@@ -617,10 +618,10 @@ pub mod avx2 {
             }
 
             let offset = None
-                .or_else(|| check_match(0, sum_01_x8, x0, x1, false))
-                .or_else(|| check_match(64, sum_23_x9, x2, x3, false))
-                .or_else(|| check_match(128, sum_45_x10, x4, x5, false))
-                .or_else(|| check_match(192, sum_67_x11, x6, x7, true));
+                .or_else(|| check_match(i + 0, sum_01_x8, x0, x1, false))
+                .or_else(|| check_match(i + 64, sum_23_x9, x2, x3, false))
+                .or_else(|| check_match(i + 128, sum_45_x10, x4, x5, false))
+                .or_else(|| check_match(i + 192, sum_67_x11, x6, x7, true));
 
             debug_assert!(offset.is_some());
             return offset;
