@@ -555,6 +555,19 @@ pub mod avx2 {
             // The difference in perf between 128 and 256 here is modest but
             // measurable
             while i + 256 <= len {
+                /*let loadcmp = |o, v| {
+                    let x = load(p, i + o, c_align);
+                    let x = _mm256_cmpeq_epi8(v, q_x15);
+                    x
+                };
+                let x0 = loadcmp(0, x0);
+                let x1 = loadcmp(32);
+                let x2 = loadcmp(64);
+                let x3 = loadcmp(96);
+                let x4 = loadcmp(128);
+                let x5 = loadcmp(160);
+                let x6 = loadcmp(192);*/
+
                 let x0 = load(p, i + 0, c_align);
                 let x0 = _mm256_cmpeq_epi8(x0, q_x15);
                 let x1 = load(p, i + 32, c_align);
@@ -567,7 +580,7 @@ pub mod avx2 {
                 let x4 = _mm256_cmpeq_epi8(x4, q_x15);
                 let x5 = load(p, i + 160, c_align);
                 let x5 = _mm256_cmpeq_epi8(x5, q_x15);
-                let x6 = load(p, i + 160, c_align);
+                let x6 = load(p, i + 192, c_align);
                 let x6 = _mm256_cmpeq_epi8(x6, q_x15);
                 let x7 = load(p, i + 224, c_align);
                 let x7 = _mm256_cmpeq_epi8(x7, q_x15);
@@ -616,7 +629,7 @@ pub mod avx2 {
                         .or_else(|| check_match(0, sum_01_x8, x0, x1, false))
                         .or_else(|| check_match(64, sum_23_x9, x2, x3, false))
                         .or_else(|| check_match(128, sum_45_x10, x4, x5, false))
-                        .or_else(|| check_match(196, sum_67_x11, x6, x7, true));
+                        .or_else(|| check_match(192, sum_67_x11, x6, x7, true));
 
                     debug_assert!(offset.is_some());
                     return offset;
