@@ -569,6 +569,7 @@ pub mod avx2 {
             let x7 = loadcmp(224);
             let x8 = loadcmp(256);
 
+            // TODO: check perf of max_epu for all these ors
             let sum_01_x8 = _mm256_or_si256(x0, x1);
             let sum_23_x9 = _mm256_or_si256(x2, x3);
             let sum_45_x10 = _mm256_or_si256(x4, x5);
