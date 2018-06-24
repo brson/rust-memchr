@@ -551,7 +551,8 @@ pub mod avx2 {
             }
         } else if i + 256 <= len {
             // The difference in perf between 128 and 256 here is modest but
-            // measurable
+            // measurable.
+            // TODO consider expanding this to 320 bytes
 
             // TODO consider using the fast search here
             // TODO consider using unlikley to get better
