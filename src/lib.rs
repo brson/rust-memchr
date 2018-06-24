@@ -440,7 +440,7 @@ pub mod avx2 {
 
         let q_x15 = _mm256_set1_epi8(needle as i8);
 
-        #[inline]
+        #[inline(always)]
         unsafe fn off(offset: isize, bitmask: i32) -> Option<usize> {
             Some((offset + cttz_nonzero(bitmask) as isize) as usize)
         }
@@ -512,8 +512,7 @@ pub mod avx2 {
             }
         }
 
-        #[inline]
-        #[target_feature(enable = "avx2")]
+        #[inline(always)]
         unsafe fn load(p: *const u8, o: isize, c_align: bool) -> __m256i {
             if c_align {
                 _mm256_load_si256(p.offset(o) as *const __m256i)
@@ -522,8 +521,7 @@ pub mod avx2 {
             }
         }
 
-        #[inline]
-        #[target_feature(enable = "avx2")]
+        #[inline(always)]
         unsafe fn cmp(q: __m256i, p: *const u8, i: isize, o: isize,
                       c_align: bool) -> Option<usize> {
             let o = i + o;
@@ -554,56 +552,93 @@ pub mod avx2 {
                 i += 128;
             }
         } else {
-            while i + 128 <= len {
-                let o = i + 0;
-                let x0 = load(p, o, c_align);
+            while i + 256 <= len {
+                let x0 = load(p, i + 0, c_align);
                 let x0 = _mm256_cmpeq_epi8(x0, q_x15);
-
-                let o = i + 32;
-                let x1 = load(p, o, c_align);
+                let x1 = load(p, i + 32, c_align);
                 let x1 = _mm256_cmpeq_epi8(x1, q_x15);
-
-                let o = i + 64;
-                let x2 = load(p, o, c_align);
+                let x2 = load(p, i + 64, c_align);
                 let x2 = _mm256_cmpeq_epi8(x2, q_x15);
-
-                let o = i + 96;
-                let x3 = load(p, o, c_align);
+                let x3 = load(p, i + 96, c_align);
                 let x3 = _mm256_cmpeq_epi8(x3, q_x15);
+                let x4 = load(p, i + 128, c_align);
+                let x4 = _mm256_cmpeq_epi8(x4, q_x15);
+                let x5 = load(p, i + 160, c_align);
+                let x5 = _mm256_cmpeq_epi8(x5, q_x15);
+                let x6 = load(p, i + 160, c_align);
+                let x6 = _mm256_cmpeq_epi8(x6, q_x15);
+                let x7 = load(p, i + 224, c_align);
+                let x7 = _mm256_cmpeq_epi8(x7, q_x15);
 
                 let sum_01_x8 = _mm256_or_si256(x0, x1);
                 let sum_23_x9 = _mm256_or_si256(x2, x3);
-                let sum_03_x10 = _mm256_or_si256(sum_01_x8, sum_23_x9);
+                let sum_45_x10 = _mm256_or_si256(x4, x5);
+                let sum_67_x11 = _mm256_or_si256(x6, x7);
+                let sum_03_x12 = _mm256_or_si256(sum_01_x8, sum_23_x9);
+                let sum_05_x12 = _mm256_or_si256(sum_45_x10, sum_03_x12);
+                let sum_07_x12 = _mm256_or_si256(sum_67_x11, sum_05_x12);
 
-                let sum_03 = _mm256_movemask_epi8(sum_03_x10);
-                if sum_03 != 0 {
-                    let sum_01 = _mm256_movemask_epi8(sum_01_x8);
-                    if sum_01 != 0 {
-                        let sum_x0 = _mm256_movemask_epi8(x0);
-                        if sum_x0 != 0 {
-                            return off(i + 0, sum_x0);
+                // Just to make it clear we're done with these
+                drop(sum_03_x12);
+                drop(sum_05_x12);
+
+                let sum_07 = _mm256_movemask_epi8(sum_07_x12);
+                if sum_07 != 0 {
+                    #[inline(always)]
+                    unsafe fn check_match(o: isize, sumv: __m256i,
+                                          v0: __m256i, v1: __m256i) -> Option<usize> {
+                        let matches = _mm256_movemask_epi8(sumv);
+                        if matches != 0 {
+                            let matches_0 = _mm256_movemask_epi8(v0);
+                            if matches_0 != 0 { return off(o + 0, matches_0) };
+                            let matches_1 = _mm256_movemask_epi8(v1);
+                            debug_assert!(matches_1 != 0);
+                            return off(o + 32, matches_1);
                         }
 
-                        let sum_x1 = _mm256_movemask_epi8(x1);
-                        debug_assert!(sum_x1 != 0);
-                        return off(i + 32, sum_x1);
-                    } else {
-					    if cfg!(debug) || cfg!(test) {
-                            let sum_23 = _mm256_movemask_epi8(sum_23_x9);
-						    assert!(sum_23 != 0);
-						}
-                        let sum_x2 = _mm256_movemask_epi8(x2);
-                        if sum_x2 != 0 {
-                            return off(i + 64, sum_x2);
-                        }
+                        None
+                    }
 
-                        let sum_x3 = _mm256_movemask_epi8(x3);
-                        debug_assert!(sum_x3 != 0);
-                        return off(i + 96, sum_x3);
-					}
+                    let (o, sumv, v0, v1) = (0, sum_01_x8, x0, x1);
+                    let matches = _mm256_movemask_epi8(sumv);
+                    if matches != 0 {
+                        let matches = _mm256_movemask_epi8(v0);
+                        if matches != 0 { return off(i + o + 0, matches) };
+                        let matches = _mm256_movemask_epi8(v1);
+                        debug_assert!(matches != 0);
+                        return off(i + o + 32, matches);
+                    }
+
+                    let (o, sumv, v0, v1) = (64, sum_23_x9, x2, x3);
+                    let matches = _mm256_movemask_epi8(sumv);
+                    if matches != 0 {
+                        let matches = _mm256_movemask_epi8(v0);
+                        if matches != 0 { return off(i + o + 0, matches) };
+                        let matches = _mm256_movemask_epi8(v1);
+                        debug_assert!(matches != 0);
+                        return off(i + o + 32, matches);
+                    }
+                    
+                    let (o, sumv, v0, v1) = (128, sum_45_x10, x4, x5);
+                    let matches = _mm256_movemask_epi8(sumv);
+                    if matches != 0 {
+                        let matches = _mm256_movemask_epi8(v0);
+                        if matches != 0 { return off(i + o + 0, matches) };
+                        let matches = _mm256_movemask_epi8(v1);
+                        debug_assert!(matches != 0);
+                        return off(i + o + 32, matches);
+                    }
+
+                    let (o, sumv, v0, v1) = (196, sum_67_x11, x6, x7);
+                    debug_assert_ne!(0, _mm256_movemask_epi8(sumv));
+                    let matches = _mm256_movemask_epi8(v0);
+                    if matches != 0 { return off(i + o + 0, matches) };
+                    let matches = _mm256_movemask_epi8(v1);
+                    debug_assert!(matches != 0);
+                    return off(i + o + 32, matches);
                 }
 
-                i += 128;
+                i += 256;
             }
         }
 
