@@ -584,60 +584,42 @@ pub mod avx2 {
                 drop(sum_03_x12);
                 drop(sum_05_x12);
 
+                // NB: The assembly code for resolving the match is expected to
+                // be straightforword (looking pretty much as the intrinsics
+                // read), but LLVM is spewing some simd vomit that I don't
+                // understand. For long searches that doesn't matter much, but
+                // the overhead matters for early matches. Would be good to
+                // resolve.
+
                 let sum_07 = _mm256_movemask_epi8(sum_07_x12);
                 if sum_07 != 0 {
+
                     #[inline(always)]
                     unsafe fn check_match(o: isize, sumv: __m256i,
-                                          v0: __m256i, v1: __m256i) -> Option<usize> {
+                                          v0: __m256i, v1: __m256i,
+                                          contains_needle: bool) -> Option<usize> {
+                        debug_assert!(!contains_needle || _mm256_movemask_epi8(sumv) != 0);
                         let matches = _mm256_movemask_epi8(sumv);
-                        if matches != 0 {
+                        if contains_needle || matches != 0 {
                             let matches_0 = _mm256_movemask_epi8(v0);
-                            if matches_0 != 0 { return off(o + 0, matches_0) };
+                            if matches_0 != 0 {
+                                return off(o + 0, matches_0)
+                            };
                             let matches_1 = _mm256_movemask_epi8(v1);
                             debug_assert!(matches_1 != 0);
                             return off(o + 32, matches_1);
                         }
-
                         None
                     }
 
-                    let (o, sumv, v0, v1) = (0, sum_01_x8, x0, x1);
-                    let matches = _mm256_movemask_epi8(sumv);
-                    if matches != 0 {
-                        let matches = _mm256_movemask_epi8(v0);
-                        if matches != 0 { return off(i + o + 0, matches) };
-                        let matches = _mm256_movemask_epi8(v1);
-                        debug_assert!(matches != 0);
-                        return off(i + o + 32, matches);
-                    }
+                    let offset = None
+                        .or_else(|| check_match(0, sum_01_x8, x0, x1, false))
+                        .or_else(|| check_match(64, sum_23_x9, x2, x3, false))
+                        .or_else(|| check_match(128, sum_45_x10, x4, x5, false))
+                        .or_else(|| check_match(196, sum_67_x11, x6, x7, true));
 
-                    let (o, sumv, v0, v1) = (64, sum_23_x9, x2, x3);
-                    let matches = _mm256_movemask_epi8(sumv);
-                    if matches != 0 {
-                        let matches = _mm256_movemask_epi8(v0);
-                        if matches != 0 { return off(i + o + 0, matches) };
-                        let matches = _mm256_movemask_epi8(v1);
-                        debug_assert!(matches != 0);
-                        return off(i + o + 32, matches);
-                    }
-                    
-                    let (o, sumv, v0, v1) = (128, sum_45_x10, x4, x5);
-                    let matches = _mm256_movemask_epi8(sumv);
-                    if matches != 0 {
-                        let matches = _mm256_movemask_epi8(v0);
-                        if matches != 0 { return off(i + o + 0, matches) };
-                        let matches = _mm256_movemask_epi8(v1);
-                        debug_assert!(matches != 0);
-                        return off(i + o + 32, matches);
-                    }
-
-                    let (o, sumv, v0, v1) = (196, sum_67_x11, x6, x7);
-                    debug_assert_ne!(0, _mm256_movemask_epi8(sumv));
-                    let matches = _mm256_movemask_epi8(v0);
-                    if matches != 0 { return off(i + o + 0, matches) };
-                    let matches = _mm256_movemask_epi8(v1);
-                    debug_assert!(matches != 0);
-                    return off(i + o + 32, matches);
+                    debug_assert!(offset.is_some());
+                    return offset;
                 }
 
                 i += 256;
