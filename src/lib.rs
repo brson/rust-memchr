@@ -509,6 +509,82 @@ pub mod avx2 {
                     return None;
                 }
             }
+        } else /* !c_align */ {
+            if len < 32 {
+                // TODO share this code with the footer
+
+                let align_mask = 32 - 1;
+                let overalignment = (p.offset(i) as usize & align_mask) as isize;
+                debug_assert!(overalignment < 32);
+
+                let readable_before = 32 - overalignment;
+                let good_bytes_before = ::std::cmp::min(len, readable_before);
+                let good_bytes_after = len - good_bytes_before;
+                //println!("gbb {} gba {}", good_bytes_before, good_bytes_after);
+
+                let simd_threshold = 0;
+
+                i -= overalignment;
+
+                if good_bytes_before > simd_threshold {
+                    let o = i + 0;
+                    let x = _mm256_load_si256(p.offset(o) as *const __m256i);
+                    let r = _mm256_cmpeq_epi8(x, q_x15);
+                    let z = _mm256_movemask_epi8(r);
+                    let garbage_mask = {
+                        debug_assert!(overalignment < 32);
+                        let ones = u32::max_value();
+                        let mask = ones << good_bytes_before;
+                        let mask = !mask;
+                        let mask = mask << overalignment;
+                        mask as i32
+                    };
+                    let z = z & garbage_mask;
+                    if z != 0 {
+                        return off(o, z);
+                    }
+                }
+
+                i += 32;
+
+                if i >= len {
+                    if cfg!(debug) || cfg!(test) {
+                        i += overalignment;
+                        i += len - i;
+                    }
+
+                    debug_assert_eq!(i, len);
+                    return None;
+                }
+
+                debug_assert!(i + 32 > len);
+
+                // FIXME This is always true while simd_threshold == 0
+                if good_bytes_after > simd_threshold {
+                    let o = i + 0;
+                    let x = _mm256_load_si256(p.offset(o) as *const __m256i);
+                    let r = _mm256_cmpeq_epi8(x, q_x15);
+                    let z = _mm256_movemask_epi8(r);
+                    let garbage_mask = {
+                        let ones = u32::max_value();
+                        let mask = ones << good_bytes_after;
+                        let mask = !mask;
+                        mask as i32
+                    };
+                    let z = z & garbage_mask;
+                    if z != 0 {
+                        return off(o, z);
+                    }
+                }
+
+                if cfg!(debug) || cfg!(test) {
+                    i += good_bytes_after;
+                }
+
+                debug_assert_eq!(i, len);
+
+                return None;
+            }
         }
 
         #[inline(always)]

@@ -62,6 +62,16 @@ fn bench_data_31_overaligned_31_found_31() -> VecDeque<u8> {
     v
 }
 
+fn bench_data_16_overaligned_8_found_16() -> VecDeque<u8> {
+    let mut v: VecDeque<_> = iter::repeat(b'z').take(16 + 15).chain(iter::repeat(b'a').take(1)).collect();
+    assert_eq!(v.as_slices().0.as_ptr() as usize & (32 - 1), 0);
+    for _ in 0..16 {
+        v.pop_front();
+    }
+    assert_ne!(v.as_slices().0.as_ptr() as usize & (32 - 1), 0);
+    v
+}
+
 fn aligned_buffer() -> Vec<u8> {
     let mut v: Vec<u128> = Vec::with_capacity(1024);
     let p = v.as_mut_ptr();
@@ -240,6 +250,20 @@ fn optimized_memchr_31_overaligned_31_found_31(b: &mut test::Bencher) {
 }
 
 #[bench]
+fn optimized_memchr_16_overaligned_8_found_16(b: &mut test::Bencher) {
+    let haystack = bench_data_16_overaligned_8_found_16();
+    let (haystack, not_haystack) = haystack.as_slices();
+    assert!(not_haystack.is_empty());
+    let needle = b'a';
+    b.iter(|| {
+        for _ in 0..100 {
+            assert!(black_box(memchr::memchr(needle, &haystack) == Some(15)));
+        }
+    });
+    b.bytes = haystack.len() as u64 * 100;
+}
+
+#[bench]
 fn optimized_memchr_libc_1_found(b: &mut test::Bencher) {
     let haystack = bench_data_1_found();
     let needle = b'a';
@@ -408,6 +432,20 @@ fn avx2_memchr_31_overaligned_31_found_31(b: &mut test::Bencher) {
     b.iter(|| {
         for _ in 0..100 {
             assert!(black_box(memchr::avx2::memchr_unsafe(needle, &haystack) == Some(30)));
+        }
+    });
+    b.bytes = haystack.len() as u64 * 100;
+}
+
+#[bench]
+fn avx2_memchr_16_overaligned_8_found_16(b: &mut test::Bencher) {
+    let haystack = bench_data_16_overaligned_8_found_16();
+    let (haystack, not_haystack) = haystack.as_slices();
+    assert!(not_haystack.is_empty());
+    let needle = b'a';
+    b.iter(|| {
+        for _ in 0..100 {
+            assert!(black_box(memchr::avx2::memchr_unsafe(needle, &haystack) == Some(15)));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
@@ -831,6 +869,22 @@ fn optimized_memchr_sse_basic_unrolled_align15_31_overaligned_31_found_31(b: &mu
         unsafe {
             for _ in 0..100 {
                 assert!(black_box(memchr::sse::memchr_basic_unrolled_align15(needle, &haystack) == Some(30)));
+            }
+        }
+    });
+    b.bytes = haystack.len() as u64 * 100;
+}
+
+#[bench]
+fn optimized_memchr_sse_basic_unrolled_align15_16_overaligned_8_found_16(b: &mut test::Bencher) {
+    let haystack = bench_data_16_overaligned_8_found_16();
+    let (haystack, not_haystack) = haystack.as_slices();
+    assert!(not_haystack.is_empty());
+    let needle = b'a';
+    b.iter(|| {
+        unsafe {
+            for _ in 0..100 {
+                assert!(black_box(memchr::sse::memchr_basic_unrolled_align15(needle, &haystack) == Some(15)));
             }
         }
     });
