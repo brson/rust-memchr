@@ -553,7 +553,10 @@ pub mod avx2 {
             }
         } else {
             while i + 128 <= len {
-                let x0_ = load(
+                let o = i + 0;
+				let x0 = load(p, o, c_align);
+                let x0 = _mm256_cmpeq_epi8(x0, q);
+				//let x0 = _mm256_and_si256(x0, q
 
 
                 i += 128;
