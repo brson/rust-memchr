@@ -451,7 +451,6 @@ pub mod avx2 {
 
         // Doing unaligned loads really doesn't affect perf on AVX2
         let c_align = false;
-        let c_simple_core = false;
 
         if c_align {
             let align_mask = 32 - 1;
@@ -538,27 +537,13 @@ pub mod avx2 {
         // consider testc_si256 / testnzc_si256 / testz
         // investigate permute + bmi2 pext
         // https://stackoverflow.com/questions/36932240/avx2-what-is-the-most-efficient-way-to-pack-left-based-on-a-mask
-        if c_simple_core {
-            while i + 128 <= len {
-                if let Some(r) = None
-                    .or_else(|| cmp(q_x15, p, i, 0, c_align))
-                    .or_else(|| cmp(q_x15, p, i, 32, c_align))
-                    .or_else(|| cmp(q_x15, p, i, 64, c_align))
-                    .or_else(|| cmp(q_x15, p, i, 96, c_align))
-                {
-                    return Some(r);
-                }
-
-                i += 128;
-            }
-        } else if i + 256 <= len {
+        if i + 256 <= len {
             // The difference in perf between 128 and 256 here is modest but
             // measurable.
             // TODO consider expanding this to 320 bytes
 
             // TODO consider using the fast search here
-            // TODO consider using unlikley to get better
-            // codegen
+            // TODO consider using unlikley to get better codegen
             if let Some(r) = None
                 .or_else(|| cmp(q_x15, p, i, 0, c_align))
                 .or_else(|| cmp(q_x15, p, i, 32, c_align))
