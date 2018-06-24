@@ -454,11 +454,14 @@ pub mod avx2 {
             let overalignment = (p.offset(i) as usize & align_mask) as isize;
             debug_assert!(overalignment < 32);
 
+            // FIXME branch for the aligned case
+
             let readable_before = 32 - overalignment;
             let good_bytes_before = ::std::cmp::min(len, readable_before);
             let good_bytes_after = len - good_bytes_before;
             //println!("gbb {} gba {}", good_bytes_before, good_bytes_after);
 
+            // FIXME
             let simd_threshold = 0;
 
             i -= overalignment;
