@@ -355,7 +355,7 @@ macro_rules! memchr_benches {
             }
 
             #[bench]
-            fn memchr_128_empty(b: &mut test::Bencher) {
+            fn memchr_empty(b: &mut test::Bencher) {
                 let haystack = bench_data_empty();
                 let needle = b'a';
                 b.iter(|| {

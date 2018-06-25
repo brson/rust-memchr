@@ -431,12 +431,36 @@ pub mod avx2 {
     pub unsafe fn memchr_avx2(needle: u8, haystack: &[u8]) -> Option<usize> {
         use std::intrinsics::{likely, unlikely, cttz_nonzero};
 
+        let p: *const u8 = haystack.as_ptr();
+        let len = haystack.len() as isize;
+
+        match len {
+            0 => {
+                return None;
+            }
+            1 => {
+                if *p.offset(0) == needle { return Some(0); }
+                if *p.offset(1) == needle { return Some(1); }
+                if *p.offset(2) == needle { return Some(2); }
+                return None;
+            }
+            2 => {
+                if *p.offset(0) == needle { return Some(0); }
+                if *p.offset(1) == needle { return Some(1); }
+                return None;
+            }
+            3 => {
+                if *p.offset(0) == needle { return Some(0); }
+                if *p.offset(1) == needle { return Some(1); }
+                if *p.offset(2) == needle { return Some(2); }
+                return None;
+            }
+            _ => {}
+        }
+
         if haystack.is_empty() { return None }
 
         debug_assert!(haystack.len() <= isize::max_value() as usize);
-
-        let p: *const u8 = haystack.as_ptr();
-        let len = haystack.len() as isize;
 
         let mut i = 0;
 
@@ -449,8 +473,7 @@ pub mod avx2 {
 
         #[inline(always)]
         unsafe fn do_tail(p: *const u8, len: isize,
-                          mut i: isize, q: __m256i,
-                          needle: u8) -> Option<usize> {
+                          mut i: isize, q: __m256i) -> Option<usize> {
 
             // TODO: fall back to sse when appropriate
 
@@ -461,34 +484,21 @@ pub mod avx2 {
             let overalignment = (p.offset(i) as usize & align_mask) as isize;
             debug_assert!(overalignment < 32);
 
-            // TODO simd threshold
-            let simd_threshold = 3;
-
             if overalignment == 0 {
                 // TODO: extract this into another function
-                if rem > simd_threshold {
-                    let o = i + 0;
-                    let x = _mm256_load_si256(p.offset(o) as *const __m256i);
-                    let r = _mm256_cmpeq_epi8(x, q);
-                    let z = _mm256_movemask_epi8(r);
-                    let garbage_mask = {
-                        let ones = u32::max_value();
-                        let mask = ones << rem;
-                        let mask = !mask;
-                        mask as i32
-                    };
-                    let z = z & garbage_mask;
-                    if z != 0 {
-                        return off(o, z);
-                    }
-                } else {
-                    assert_eq!(simd_threshold, 3);
-                    while i < len {
-                        if *p.offset(i) == needle {
-                            return Some(i as usize);
-                        }
-                        i += 1;
-                    }
+                let o = i + 0;
+                let x = _mm256_load_si256(p.offset(o) as *const __m256i);
+                let r = _mm256_cmpeq_epi8(x, q);
+                let z = _mm256_movemask_epi8(r);
+                let garbage_mask = {
+                    let ones = u32::max_value();
+                    let mask = ones << rem;
+                    let mask = !mask;
+                    mask as i32
+                };
+                let z = z & garbage_mask;
+                if z != 0 {
+                    return off(o, z);
                 }
 
                 return None;
@@ -565,7 +575,7 @@ pub mod avx2 {
         if len < 256 {
             if len < 32 {
                 debug_assert!(len - i < 32);
-                return do_tail(p, len, i, q_x15, needle);
+                return do_tail(p, len, i, q_x15);
             }
 
             if len < 64 {
@@ -575,7 +585,7 @@ pub mod avx2 {
                 i += 32;
 
                 debug_assert!(len - i < 32);
-                return do_tail(p, len, i, q_x15, needle);
+                return do_tail(p, len, i, q_x15);
             }
 
             if len < 256 {
@@ -588,7 +598,7 @@ pub mod avx2 {
                 }
 
                 debug_assert!(len - i < 32);
-                return do_tail(p, len, i, q_x15, needle);
+                return do_tail(p, len, i, q_x15);
             }
         }
         
@@ -719,7 +729,7 @@ pub mod avx2 {
 
         if i < len {
             debug_assert!(len - i < 32);
-            return do_tail(p, len, i, q_x15, needle);
+            return do_tail(p, len, i, q_x15);
         }
 
         None
