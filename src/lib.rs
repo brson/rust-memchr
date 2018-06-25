@@ -1260,19 +1260,7 @@ mod tests {
                 assert_eq!(None, $memchr(b'a', b"xyz"));
             }
 
-                #[test]
-                fn foo1() {
-                    let data = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0];
-                    $memchr(0, &data);
-                }
-
-                #[test]
-                fn foo2() {
-                    let data = [25, 20, 27, 44, 43, 52, 0, 36, 54, 45, 86, 50, 38, 78, 29, 57, 38, 43, 17, 27, 75, 55, 92, 23, 85, 7, 31, 68, 92, 67, 93, 80, 59, 10, 61, 72, 13, 6, 44];
-                    $memchr(1, &data);
-                }
-
-                #[test]
+            #[test]
             fn qc_never_fail() {
                 fn prop(needle: u8, haystack: Vec<u8>) -> bool {
                     $memchr(needle, &haystack); true
