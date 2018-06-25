@@ -715,12 +715,7 @@ pub mod avx2 {
         None
     }
 
-    #[inline(always)]
-    pub fn memrchr_unsafe(needle: u8, haystack: &[u8]) -> Option<usize> {
-        unsafe { memrchr(needle, haystack) }
-    }
-
-    pub unsafe fn memrchr(needle: u8, haystack: &[u8]) -> Option<usize> {
+    pub fn memrchr(needle: u8, haystack: &[u8]) -> Option<usize> {
         ::fallback::memrchr(needle, haystack)
     }
 }
@@ -1124,12 +1119,7 @@ pub mod sse {
         None
     }
 
-    #[inline(always)]
-    pub fn memrchr_unsafe(needle: u8, haystack: &[u8]) -> Option<usize> {
-        unsafe { memrchr(needle, haystack) }
-    }
-
-    pub unsafe fn memrchr(needle: u8, haystack: &[u8]) -> Option<usize> {
+    pub fn memrchr(needle: u8, haystack: &[u8]) -> Option<usize> {
         ::fallback::memrchr(needle, haystack)
     }
 }
@@ -1419,8 +1409,8 @@ mod tests {
 
     memchr_tests! { native, ::memchr, ::memrchr }
     memchr_tests! { fallback, ::fallback::memchr, ::fallback::memrchr }
-    memchr_tests! { avx2, ::avx2::memchr_unsafe, ::avx2::memrchr_unsafe }
-    memchr_tests! { sse, ::sse::memchr_unsafe, ::sse::memrchr_unsafe }
+    memchr_tests! { avx2, ::avx2::memchr, ::avx2::memrchr }
+    memchr_tests! { sse, ::sse::memchr, ::sse::memrchr }
 
     #[test]
     fn memchr2_matches_one() {
