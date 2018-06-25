@@ -451,27 +451,43 @@ pub mod avx2 {
         unsafe fn do_tail(p: *const u8, len: isize,
                           mut i: isize, q: __m256i) -> Option<usize> {
 
+            let rem = len - i;
+            debug_assert!(rem < 32);
+
             let align_mask = 32 - 1;
             let overalignment = (p.offset(i) as usize & align_mask) as isize;
             debug_assert!(overalignment < 32);
 
-            // FIXME branch for the aligned case
+            // TODO simd threshold
 
-            let rem = len - i;
-            debug_assert!(rem < 32);
+            if overalignment == 0 {
+                let o = i + 0;
+                let x = _mm256_load_si256(p.offset(o) as *const __m256i);
+                let r = _mm256_cmpeq_epi8(x, q);
+                let z = _mm256_movemask_epi8(r);
+                let garbage_mask = {
+                    let ones = u32::max_value();
+                    let mask = ones << rem;
+                    let mask = !mask;
+                    mask as i32
+                };
+                let z = z & garbage_mask;
+                if z != 0 {
+                    return off(o, z);
+                }
+
+                return None;
+            }
+
             let readable_before = 32 - overalignment;
             let good_bytes_before = ::std::cmp::min(rem, readable_before);
             let good_bytes_after = rem - good_bytes_before;
             debug_assert!(good_bytes_before < 32);
             debug_assert!(overalignment < 32);
-            //println!("gbb {} gba {}", good_bytes_before, good_bytes_after);
-
-            // FIXME
-            let simd_threshold = 0;
 
             i -= overalignment;
 
-            if good_bytes_before > simd_threshold {
+            if good_bytes_before > 0 {
                 let o = i + 0;
                 let x = _mm256_load_si256(p.offset(o) as *const __m256i);
                 let r = _mm256_cmpeq_epi8(x, q);
@@ -503,7 +519,7 @@ pub mod avx2 {
 
             debug_assert!(i + 32 > len);
 
-            if good_bytes_after > simd_threshold {
+            if good_bytes_after > 0 {
                 let o = i + 0;
                 let x = _mm256_load_si256(p.offset(o) as *const __m256i);
                 let r = _mm256_cmpeq_epi8(x, q);
@@ -529,29 +545,34 @@ pub mod avx2 {
             return None;
         }
 
-        if len < 32 {
-            return do_tail(p, len, i, q_x15);
-        }
-
-        if len < 64 {
-            if let Some(r) = cmp(q_x15, p, i, 0) {
-                return Some(r);
-            }
-            i += 32;
-
-            return do_tail(p, len, i, q_x15);
-        }
-
         if len < 256 {
-            let len_minus = len - 32;
-            while i < len_minus {
+            if len < 32 {
+                debug_assert!(len - i < 32);
+                return do_tail(p, len, i, q_x15);
+            }
+
+            if len < 64 {
                 if let Some(r) = cmp(q_x15, p, i, 0) {
                     return Some(r);
                 }
                 i += 32;
+
+                debug_assert!(len - i < 32);
+                return do_tail(p, len, i, q_x15);
             }
 
-            return do_tail(p, len, i, q_x15);
+            if len < 256 {
+                let len_minus = len - 32;
+                while i <= len_minus {
+                    if let Some(r) = cmp(q_x15, p, i, 0) {
+                        return Some(r);
+                    }
+                    i += 32;
+                }
+
+                debug_assert!(len - i < 32);
+                return do_tail(p, len, i, q_x15);
+            }
         }
         
         #[inline(always)]
@@ -669,7 +690,8 @@ pub mod avx2 {
             return offset;
         }
 
-        while i + 32 <= len  {
+        let len_minus = len - 32;
+        while i <= len_minus  {
             if let Some(r) = cmp(q_x15, p, i, 0) {
                 return Some(r);
             }
@@ -678,8 +700,7 @@ pub mod avx2 {
         }
 
         if i < len {
-            debug_assert!(i + 32 > len);
-
+            debug_assert!(len - i < 32);
             return do_tail(p, len, i, q_x15);
         }
 
