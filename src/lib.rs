@@ -438,6 +438,8 @@ pub mod avx2 {
 
         // FIXME: assembly for this is reloading dil into edi unnecessarily...
         let len = haystack.len();
+        // FIXME: Do this jump unconditionally and then jump at the end of
+        // each function to the > 256 case.
         if likely(len < 256) {
             AVX2FNS[len as u8 as usize](needle, haystack)
         } else {
@@ -473,7 +475,24 @@ pub mod avx2 {
 
     #[target_feature(enable = "avx2")]
     unsafe fn memchr_avx2_3(needle: u8, haystack: &[u8]) -> Option<usize> {
+        //use std::intrinsics::cttz_nonzero;
+
         debug_assert_eq!(haystack.len(), 3);
+
+        // FIXME: Hand-implement this like the autovectorizor
+        // Hand-implement lt32 like this is autovectorizered
+        /*let p: *const u8 = haystack.as_ptr();
+        let r1 = *p.offset(0) == needle;
+        let r2 = *p.offset(1) == needle;
+        let r3 = *p.offset(2) == needle;
+        let mut mask = 0u8;
+        mask |= (r1 as u8) << 0;
+        mask |= (r2 as u8) << 1;
+        mask |= (r3 as u8) << 2;
+        if mask != 0 {
+            return Some(cttz_nonzero(mask as usize));
+        }
+        return None;*/
 
         let p: *const u8 = haystack.as_ptr();
         if *p.offset(0) == needle { return Some(0); }
