@@ -454,11 +454,43 @@ pub mod avx2 {
                 if *p.offset(2) == needle { return Some(2); }
                 return None;
             }
-            _ => {}
+            _ if len < 32 => {
+                let q_x15 = _mm256_set1_epi8(needle as i8);
+
+                debug_assert!(len - i < 32);
+                return do_tail(p, len, i, q_x15);
+            }
+            _ if len < 64 => {
+                let mut i = 0;
+                let q_x15 = _mm256_set1_epi8(needle as i8);
+
+                if let Some(r) = cmp(q_x15, p, i, 0) {
+                    return Some(r);
+                }
+                i += 32;
+
+                debug_assert!(len - i < 32);
+                return do_tail(p, len, i, q_x15);
+            }
+            _ if len < 256 => {
+                let mut i = 0;
+                let q_x15 = _mm256_set1_epi8(needle as i8);
+
+                let len_minus = len - 32;
+                while i <= len_minus {
+                    if let Some(r) = cmp(q_x15, p, i, 0) {
+                        return Some(r);
+                    }
+                    i += 32;
+                }
+
+                debug_assert!(len - i < 32);
+                return do_tail(p, len, i, q_x15);
+            }
+            _ => { }
         }
 
         let mut i = 0;
-
         let q_x15 = _mm256_set1_epi8(needle as i8);
 
         #[inline(always)]
@@ -567,36 +599,6 @@ pub mod avx2 {
             debug_assert_eq!(i, len);
 
             return None;
-        }
-
-        if len < 256 {
-            if len < 32 {
-                debug_assert!(len - i < 32);
-                return do_tail(p, len, i, q_x15);
-            }
-
-            if len < 64 {
-                if let Some(r) = cmp(q_x15, p, i, 0) {
-                    return Some(r);
-                }
-                i += 32;
-
-                debug_assert!(len - i < 32);
-                return do_tail(p, len, i, q_x15);
-            }
-
-            if len < 256 {
-                let len_minus = len - 32;
-                while i <= len_minus {
-                    if let Some(r) = cmp(q_x15, p, i, 0) {
-                        return Some(r);
-                    }
-                    i += 32;
-                }
-
-                debug_assert!(len - i < 32);
-                return do_tail(p, len, i, q_x15);
-            }
         }
 
         // TODO remove
