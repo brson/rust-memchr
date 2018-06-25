@@ -328,7 +328,7 @@ fn avx2_memchr_big(b: &mut test::Bencher) {
     let haystack = bench_data();
     let needle = b'a';
     b.iter(|| {
-        assert!(memchr::avx2::memchr_unsafe(needle, &haystack).is_none());
+        assert!(memchr::avx2::memchr(needle, &haystack).is_none());
     });
     b.bytes = haystack.len() as u64;
 }
@@ -338,7 +338,7 @@ fn avx2_memchr_realbig(b: &mut test::Bencher) {
     let haystack = bench_data_realbig();
     let needle = b'a';
     b.iter(|| {
-        assert!(memchr::avx2::memchr_unsafe(needle, &haystack).is_none());
+        assert!(memchr::avx2::memchr(needle, &haystack).is_none());
     });
     b.bytes = haystack.len() as u64;
 }
@@ -349,7 +349,7 @@ fn avx2_memchr_63(b: &mut test::Bencher) {
     let needle = b'a';
     b.iter(|| {
         for _ in 0..100 {
-            assert!(black_box(memchr::avx2::memchr_unsafe(needle, &haystack).is_none()));
+            assert!(black_box(memchr::avx2::memchr(needle, &haystack).is_none()));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
@@ -361,7 +361,7 @@ fn avx2_memchr_15(b: &mut test::Bencher) {
     let needle = b'a';
     b.iter(|| {
         for _ in 0..100 {
-            assert!(black_box(memchr::avx2::memchr_unsafe(needle, &haystack).is_none()));
+            assert!(black_box(memchr::avx2::memchr(needle, &haystack).is_none()));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
@@ -375,7 +375,7 @@ fn avx2_memchr_15_unaligned(b: &mut test::Bencher) {
     let needle = b'a';
     b.iter(|| {
         for _ in 0..100 {
-            assert!(black_box(memchr::avx2::memchr_unsafe(needle, &haystack).is_none()));
+            assert!(black_box(memchr::avx2::memchr(needle, &haystack).is_none()));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
@@ -389,7 +389,7 @@ fn avx2_memchr_15_unaligned_found(b: &mut test::Bencher) {
     let needle = b'a';
     b.iter(|| {
         for _ in 0..100 {
-            assert!(black_box(memchr::avx2::memchr_unsafe(needle, &haystack) == Some(14)));
+            assert!(black_box(memchr::avx2::memchr(needle, &haystack) == Some(14)));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
@@ -403,7 +403,7 @@ fn avx2_memchr_16_unaligned(b: &mut test::Bencher) {
     let needle = b'a';
     b.iter(|| {
         for _ in 0..100 {
-            assert!(black_box(memchr::avx2::memchr_unsafe(needle, &haystack).is_none()));
+            assert!(black_box(memchr::avx2::memchr(needle, &haystack).is_none()));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
@@ -417,7 +417,7 @@ fn avx2_memchr_16_unaligned_found(b: &mut test::Bencher) {
     let needle = b'a';
     b.iter(|| {
         for _ in 0..100 {
-            assert!(black_box(memchr::avx2::memchr_unsafe(needle, &haystack) == Some(15)));
+            assert!(black_box(memchr::avx2::memchr(needle, &haystack) == Some(15)));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
@@ -431,7 +431,7 @@ fn avx2_memchr_31_overaligned_31_found_31(b: &mut test::Bencher) {
     let needle = b'a';
     b.iter(|| {
         for _ in 0..100 {
-            assert!(black_box(memchr::avx2::memchr_unsafe(needle, &haystack) == Some(30)));
+            assert!(black_box(memchr::avx2::memchr(needle, &haystack) == Some(30)));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
@@ -445,7 +445,7 @@ fn avx2_memchr_16_overaligned_8_found_16(b: &mut test::Bencher) {
     let needle = b'a';
     b.iter(|| {
         for _ in 0..100 {
-            assert!(black_box(memchr::avx2::memchr_unsafe(needle, &haystack) == Some(15)));
+            assert!(black_box(memchr::avx2::memchr(needle, &haystack) == Some(15)));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
@@ -457,7 +457,7 @@ fn avx2_memchr_1_found(b: &mut test::Bencher) {
     let needle = b'a';
     b.iter(|| {
         for _ in 0..100 {
-            assert!(black_box(memchr::avx2::memchr_unsafe(needle, &haystack) == Some(0)));
+            assert!(black_box(memchr::avx2::memchr(needle, &haystack) == Some(0)));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
@@ -469,7 +469,7 @@ fn avx2_memchr_128_found_last(b: &mut test::Bencher) {
     let needle = b'a';
     b.iter(|| {
         for _ in 0..100 {
-            assert!(black_box(memchr::avx2::memchr_unsafe(needle, &haystack) == Some(127)));
+            assert!(black_box(memchr::avx2::memchr(needle, &haystack) == Some(127)));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
@@ -481,7 +481,7 @@ fn avx2_memchr_128_found_first(b: &mut test::Bencher) {
     let needle = b'a';
     b.iter(|| {
         for _ in 0..100 {
-            assert!(black_box(memchr::avx2::memchr_unsafe(needle, &haystack).is_some()));
+            assert!(black_box(memchr::avx2::memchr(needle, &haystack).is_some()));
         }
     });
     b.bytes = 100;
@@ -493,7 +493,7 @@ fn avx2_memchr_128_found_64(b: &mut test::Bencher) {
     let needle = b'a';
     b.iter(|| {
         for _ in 0..100 {
-            assert!(black_box(memchr::avx2::memchr_unsafe(needle, &haystack).is_some()));
+            assert!(black_box(memchr::avx2::memchr(needle, &haystack).is_some()));
         }
     });
     b.bytes = 100;
@@ -505,469 +505,195 @@ fn avx2_memchr_128_empty(b: &mut test::Bencher) {
     let needle = b'a';
     b.iter(|| {
         for _ in 0..100 {
-            assert!(black_box(memchr::avx2::memchr_unsafe(needle, &haystack).is_none()));
+            assert!(black_box(memchr::avx2::memchr(needle, &haystack).is_none()));
         }
     });
     b.bytes = haystack.len() as u64;
 }
 
-#[ignore]
 #[bench]
-fn optimized_memchr_sse_basic(b: &mut test::Bencher) {
+fn sse_memchr_big(b: &mut test::Bencher) {
     let haystack = bench_data();
     let needle = b'a';
     b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_basic(needle, &haystack).is_none());
-        }
+        assert!(memchr::sse::memchr(needle, &haystack).is_none());
     });
     b.bytes = haystack.len() as u64;
 }
 
 #[bench]
-fn optimized_memchr_sse_basic_unrolled(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_basic_unrolled(needle, &haystack).is_none());
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[ignore]
-#[bench]
-fn optimized_memchr_sse_more(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_more(needle, &haystack).is_none());
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[ignore]
-#[bench]
-fn optimized_memchr_sse_more_unrolled(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_more_unrolled(needle, &haystack).is_none());
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[ignore]
-#[bench]
-fn optimized_memchr_sse_more_unrolled_align(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_more_unrolled_align(needle, &haystack).is_none());
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[bench]
-fn optimized_memchr_sse_basic_unrolled_align(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_basic_unrolled_align(needle, &haystack).is_none());
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[bench]
-fn optimized_memchr_sse_basic_unrolled_align2(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_basic_unrolled_align2(needle, &haystack).is_none());
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[bench]
-fn optimized_memchr_sse_basic_unrolled_align3(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_basic_unrolled_align3(needle, &haystack).is_none());
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[bench]
-fn optimized_memchr_sse_basic_unrolled_align4(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_basic_unrolled_align4(needle, &haystack).is_none());
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[bench]
-fn optimized_memchr_sse_basic_unrolled_align5(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_basic_unrolled_align5(needle, &haystack).is_none());
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[bench]
-fn optimized_memchr_sse_basic_unrolled_align6(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_basic_unrolled_align6(needle, &haystack).is_none());
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[bench]
-fn optimized_memchr_sse_basic_unrolled_align7(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_basic_unrolled_align7(needle, &haystack).is_none());
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[bench]
-fn optimized_memchr_sse_basic_unrolled_align8(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_basic_unrolled_align8(needle, &haystack).is_none());
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[bench]
-fn optimized_memchr_sse_basic_unrolled_align9(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_basic_unrolled_align9(needle, &haystack).is_none());
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[bench]
-fn optimized_memchr_sse_basic_unrolled_align10(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_basic_unrolled_align10(needle, &haystack).is_none());
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[bench]
-fn optimized_memchr_sse_basic_unrolled_align11(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_basic_unrolled_align11(needle, &haystack).is_none());
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[bench]
-fn optimized_memchr_sse_basic_unrolled_align12(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_basic_unrolled_align12(needle, &haystack).is_none());
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[bench]
-fn optimized_memchr_sse_basic_unrolled_align13(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_basic_unrolled_align13(needle, &haystack).is_none());
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[bench]
-fn optimized_memchr_sse_basic_unrolled_align14(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_basic_unrolled_align14(needle, &haystack).is_none());
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[bench]
-fn optimized_memchr_sse_basic_unrolled_align15_big(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_basic_unrolled_align15(needle, &haystack).is_none());
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[bench]
-fn optimized_memchr_sse_basic_unrolled_align15_realbigbig(b: &mut test::Bencher) {
+fn sse_memchr_realbigbig(b: &mut test::Bencher) {
     let haystack = bench_data_realbig();
     let needle = b'a';
     b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_basic_unrolled_align15(needle, &haystack).is_none());
-        }
+        assert!(memchr::sse::memchr(needle, &haystack).is_none());
     });
     b.bytes = haystack.len() as u64;
 }
 
 #[bench]
-fn optimized_memchr_sse_basic_unrolled_align15_63(b: &mut test::Bencher) {
+fn sse_memchr_63(b: &mut test::Bencher) {
     let haystack = bench_data_63();
     let needle = b'a';
     b.iter(|| {
-        unsafe {
-            for _ in 0..100 {
-                assert!(black_box(memchr::sse::memchr_basic_unrolled_align15(needle, &haystack).is_none()));
-            }
+        for _ in 0..100 {
+            assert!(black_box(memchr::sse::memchr(needle, &haystack).is_none()));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
 }
 
 #[bench]
-fn optimized_memchr_sse_basic_unrolled_align15_15(b: &mut test::Bencher) {
+fn sse_memchr_15(b: &mut test::Bencher) {
     let haystack = bench_data_15();
     let needle = b'a';
     b.iter(|| {
-        unsafe {
-            for _ in 0..100 {
-                assert!(black_box(memchr::sse::memchr_basic_unrolled_align15(needle, &haystack).is_none()));
-            }
+        for _ in 0..100 {
+            assert!(black_box(memchr::sse::memchr(needle, &haystack).is_none()));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
 }
 
 #[bench]
-fn optimized_memchr_sse_basic_unrolled_align15_15_unaligned(b: &mut test::Bencher) {
+fn sse_memchr_15_unaligned(b: &mut test::Bencher) {
     let haystack = bench_data_15_unaligned();
     let (haystack, not_haystack) = haystack.as_slices();
     assert!(not_haystack.is_empty());
     let needle = b'a';
     b.iter(|| {
-        unsafe {
-            for _ in 0..100 {
-                assert!(black_box(memchr::sse::memchr_basic_unrolled_align15(needle, &haystack).is_none()));
-            }
+        for _ in 0..100 {
+            assert!(black_box(memchr::sse::memchr(needle, &haystack).is_none()));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
 }
 
 #[bench]
-fn optimized_memchr_sse_basic_unrolled_align15_15_unaligned_found(b: &mut test::Bencher) {
+fn sse_memchr_15_unaligned_found(b: &mut test::Bencher) {
     let haystack = bench_data_15_unaligned_found();
     let (haystack, not_haystack) = haystack.as_slices();
     assert!(not_haystack.is_empty());
     let needle = b'a';
     b.iter(|| {
-        unsafe {
-            for _ in 0..100 {
-                assert!(black_box(memchr::sse::memchr_basic_unrolled_align15(needle, &haystack) == Some(14)));
-            }
+        for _ in 0..100 {
+            assert!(black_box(memchr::sse::memchr(needle, &haystack) == Some(14)));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
 }
 
 #[bench]
-fn optimized_memchr_sse_basic_unrolled_align15_16_unaligned(b: &mut test::Bencher) {
+fn sse_memchr_16_unaligned(b: &mut test::Bencher) {
     let haystack = bench_data_16_unaligned();
     let (haystack, not_haystack) = haystack.as_slices();
     assert!(not_haystack.is_empty());
     let needle = b'a';
     b.iter(|| {
-        unsafe {
-            for _ in 0..100 {
-                assert!(black_box(memchr::sse::memchr_basic_unrolled_align15(needle, &haystack).is_none()));
-            }
+        for _ in 0..100 {
+            assert!(black_box(memchr::sse::memchr(needle, &haystack).is_none()));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
 }
 
 #[bench]
-fn optimized_memchr_sse_basic_unrolled_align15_16_unaligned_found(b: &mut test::Bencher) {
+fn sse_memchr_16_unaligned_found(b: &mut test::Bencher) {
     let haystack = bench_data_16_unaligned_found();
     let (haystack, not_haystack) = haystack.as_slices();
     assert!(not_haystack.is_empty());
     let needle = b'a';
     b.iter(|| {
-        unsafe {
-            for _ in 0..100 {
-                assert!(black_box(memchr::sse::memchr_basic_unrolled_align15(needle, &haystack) == Some(15)));
-            }
+        for _ in 0..100 {
+            assert!(black_box(memchr::sse::memchr(needle, &haystack) == Some(15)));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
 }
 
 #[bench]
-fn optimized_memchr_sse_basic_unrolled_align15_31_overaligned_31_found_31(b: &mut test::Bencher) {
+fn sse_memchr_31_overaligned_31_found_31(b: &mut test::Bencher) {
     let haystack = bench_data_31_overaligned_31_found_31();
     let (haystack, not_haystack) = haystack.as_slices();
     assert!(not_haystack.is_empty());
     let needle = b'a';
     b.iter(|| {
-        unsafe {
-            for _ in 0..100 {
-                assert!(black_box(memchr::sse::memchr_basic_unrolled_align15(needle, &haystack) == Some(30)));
-            }
+        for _ in 0..100 {
+            assert!(black_box(memchr::sse::memchr(needle, &haystack) == Some(30)));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
 }
 
 #[bench]
-fn optimized_memchr_sse_basic_unrolled_align15_16_overaligned_8_found_16(b: &mut test::Bencher) {
+fn sse_memchr_16_overaligned_8_found_16(b: &mut test::Bencher) {
     let haystack = bench_data_16_overaligned_8_found_16();
     let (haystack, not_haystack) = haystack.as_slices();
     assert!(not_haystack.is_empty());
     let needle = b'a';
     b.iter(|| {
-        unsafe {
-            for _ in 0..100 {
-                assert!(black_box(memchr::sse::memchr_basic_unrolled_align15(needle, &haystack) == Some(15)));
-            }
+        for _ in 0..100 {
+            assert!(black_box(memchr::sse::memchr(needle, &haystack) == Some(15)));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
 }
 
 #[bench]
-fn optimized_memchr_sse_basic_unrolled_align15_1_found(b: &mut test::Bencher) {
+fn sse_memchr_1_found(b: &mut test::Bencher) {
     let haystack = bench_data_1_found();
     let needle = b'a';
     b.iter(|| {
-        unsafe {
-            for _ in 0..100 {
-                assert!(black_box(memchr::sse::memchr_basic_unrolled_align15(needle, &haystack) == Some(0)));
-            }
+        for _ in 0..100 {
+            assert!(black_box(memchr::sse::memchr(needle, &haystack) == Some(0)));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
 }
 
 #[bench]
-fn optimized_memchr_sse_basic_unrolled_align15_128_found_last(b: &mut test::Bencher) {
+fn sse_memchr_128_found_last(b: &mut test::Bencher) {
     let haystack = bench_data_128_found_last();
     let needle = b'a';
     b.iter(|| {
-        unsafe {
-            for _ in 0..100 {
-                assert!(black_box(memchr::sse::memchr_basic_unrolled_align15(needle, &haystack) == Some(127)));
-            }
+        for _ in 0..100 {
+            assert!(black_box(memchr::sse::memchr(needle, &haystack) == Some(127)));
         }
     });
     b.bytes = haystack.len() as u64 * 100;
 }
 
 #[bench]
-fn optimized_memchr_sse_basic_unrolled_align15_128_found_first(b: &mut test::Bencher) {
+fn sse_memchr_128_found_first(b: &mut test::Bencher) {
     let haystack = bench_data_128_found_first();
     let needle = b'a';
     b.iter(|| {
-        unsafe {
-            for _ in 0..100 {
-                assert!(black_box(memchr::sse::memchr_basic_unrolled_align15(needle, &haystack).is_some()));
-            }
+        for _ in 0..100 {
+            assert!(black_box(memchr::sse::memchr(needle, &haystack).is_some()));
         }
     });
     b.bytes = 100;
 }
 
 #[bench]
-fn optimized_memchr_sse_basic_unrolled_align15_128_found_64(b: &mut test::Bencher) {
+fn sse_memchr_128_found_64(b: &mut test::Bencher) {
     let haystack = bench_data_128_found_64();
     let needle = b'a';
     b.iter(|| {
-        unsafe {
-            for _ in 0..100 {
-                assert!(black_box(memchr::sse::memchr_basic_unrolled_align15(needle, &haystack).is_some()));
-            }
+        for _ in 0..100 {
+            assert!(black_box(memchr::sse::memchr(needle, &haystack).is_some()));
         }
     });
     b.bytes = 100;
 }
 
 #[bench]
-fn optimized_memchr_sse_basic_unrolled_align15_128_empty(b: &mut test::Bencher) {
+fn sse_memchr_128_empty(b: &mut test::Bencher) {
     let haystack = bench_data_empty();
     let needle = b'a';
     b.iter(|| {
-        unsafe {
-            for _ in 0..100 {
-                assert!(black_box(memchr::sse::memchr_basic_unrolled_align15(needle, &haystack).is_none()));
-            }
-        }
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-#[bench]
-fn optimized_memchr_sse_basic_unrolled_align16(b: &mut test::Bencher) {
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        unsafe {
-            assert!(memchr::sse::memchr_basic_unrolled_align16(needle, &haystack).is_none());
+        for _ in 0..100 {
+            assert!(black_box(memchr::sse::memchr(needle, &haystack).is_none()));
         }
     });
     b.bytes = haystack.len() as u64;
