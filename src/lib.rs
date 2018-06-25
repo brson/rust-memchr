@@ -658,8 +658,6 @@ pub mod avx2 {
 
                 debug_assert!(!contains_needle || _mm256_movemask_epi8(sumv) != 0);
 
-                // TODO try using vptest here to get rid of crummy
-                // codegen
                 // NB: This movemask will be optimized away when contains_needle
                 // is true.
                 let matches = _mm256_movemask_epi8(sumv);
