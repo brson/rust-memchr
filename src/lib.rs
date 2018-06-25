@@ -529,41 +529,20 @@ pub mod avx2 {
             return None;
         }
 
-        /*if len < 32 {
+        if len < 32 {
             return do_tail(p, len, i, q_x15);
-        }*/
-
-        let lt_32 = len < 32;
-        let lt_64 = len < 64;
-        let lt_256 = len < 256;
-
-        match (lt_32, lt_64, lt_256) {
-            (true, _, _) => {
-                return do_tail(p, len, i, q_x15);
-            }
-            (_, true, _) => {
-                if let Some(r) = cmp(q_x15, p, i, 0) {
-                    return Some(r);
-                }
-                i += 32;
-
-                return do_tail(p, len, i, q_x15);
-            }
-            (_, _, true) => {
-                let len_minus = len - 32;
-                while i < len_minus {
-                    if let Some(r) = cmp(q_x15, p, i, 0) {
-                        return Some(r);
-                    }
-                    i += 32;
-                }
-
-                return do_tail(p, len, i, q_x15);
-            }
-            _ => { }
         }
-        
-        /*if len < 256 {
+
+        if len < 64 {
+            if let Some(r) = cmp(q_x15, p, i, 0) {
+                return Some(r);
+            }
+            i += 32;
+
+            return do_tail(p, len, i, q_x15);
+        }
+
+        if len < 256 {
             let len_minus = len - 32;
             while i < len_minus {
                 if let Some(r) = cmp(q_x15, p, i, 0) {
@@ -573,8 +552,8 @@ pub mod avx2 {
             }
 
             return do_tail(p, len, i, q_x15);
-        }*/
-
+        }
+        
         #[inline(always)]
         unsafe fn load(p: *const u8, o: isize) -> __m256i {
             _mm256_loadu_si256(p.offset(o) as *const __m256i)
