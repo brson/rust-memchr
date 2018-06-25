@@ -483,16 +483,11 @@ pub mod avx2 {
                     }
                 } else {
                     assert_eq!(simd_threshold, 3);
-                    if unlikely(*p.offset(i) == needle) {
-                        return Some(i as usize);
-                    }
-                    i += 1;
-                    if unlikely(*p.offset(i) == needle) {
-                        return Some(i as usize);
-                    }
-                    i += 1;
-                    if unlikely(*p.offset(i) == needle) {
-                        return Some(i as usize);
+                    while i < len {
+                        if *p.offset(i) == needle {
+                            return Some(i as usize);
+                        }
+                        i += 1;
                     }
                 }
 
