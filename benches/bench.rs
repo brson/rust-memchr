@@ -241,7 +241,7 @@ macro_rules! memchr_benches {
             }
 
             #[bench]
-            fn optimized_memchr_31_overaligned_31_found_31(b: &mut test::Bencher) {
+            fn memchr_31_overaligned_31_found_31(b: &mut test::Bencher) {
                 let haystack = bench_data_31_overaligned_31_found_31();
                 let (haystack, not_haystack) = haystack.as_slices();
                 assert!(not_haystack.is_empty());
@@ -255,7 +255,7 @@ macro_rules! memchr_benches {
             }
 
             #[bench]
-            fn optimized_memchr_16_overaligned_8_found_16(b: &mut test::Bencher) {
+            fn memchr_16_overaligned_8_found_16(b: &mut test::Bencher) {
                 let haystack = bench_data_16_overaligned_8_found_16();
                 let (haystack, not_haystack) = haystack.as_slices();
                 assert!(not_haystack.is_empty());
