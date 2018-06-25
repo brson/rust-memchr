@@ -457,8 +457,7 @@ pub mod avx2 {
             _ if len < 32 => {
                 let q_x15 = _mm256_set1_epi8(needle as i8);
 
-                debug_assert!(len - i < 32);
-                return do_tail(p, len, i, q_x15);
+                return do_tail(p, len, 0, q_x15);
             }
             _ if len < 64 => {
                 let mut i = 0;
@@ -489,9 +488,6 @@ pub mod avx2 {
             }
             _ => { }
         }
-
-        let mut i = 0;
-        let q_x15 = _mm256_set1_epi8(needle as i8);
 
         #[inline(always)]
         unsafe fn off(offset: isize, bitmask: i32) -> Option<usize> {
@@ -618,6 +614,9 @@ pub mod avx2 {
             }
             None
         }
+
+        let mut i = 0;
+        let q_x15 = _mm256_set1_epi8(needle as i8);
 
         // TODO consider stream_load
         // consider testc_si256 / testnzc_si256 / testz
