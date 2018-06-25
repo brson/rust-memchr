@@ -508,6 +508,8 @@ pub mod avx2 {
             i -= overalignment;
 
             // TODO: simd threshold
+            // TODO: for the footer call we don't need to mask out
+            // the bytes already read
             if good_bytes_before > 0 {
                 let o = i + 0;
                 let x = _mm256_load_si256(p.offset(o) as *const __m256i);
@@ -596,7 +598,8 @@ pub mod avx2 {
                 return do_tail(p, len, i, q_x15);
             }
         }
-        
+
+        // TODO remove
         #[inline(always)]
         unsafe fn load(p: *const u8, o: isize) -> __m256i {
             _mm256_loadu_si256(p.offset(o) as *const __m256i)
@@ -1374,24 +1377,6 @@ mod tests {
                 }
                 quickcheck::quickcheck(prop as fn(u8, Vec<u8>) -> bool);
             }
-
-                #[test]
-                fn foo() {
-                    let v = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
-                    let offset = 14;
-                    // test all pointer alignments
-                    let uoffset = (offset & 0xF) as usize;
-                    let data = if uoffset <= v.len() {
-                        &v[uoffset..]
-                    } else {
-                        &v[..]
-                    };
-                    for byte in 0..256u32 {
-                        let byte = byte as u8;
-                        let pos = data.iter().position(|elt| *elt == byte);
-                        assert_eq!($memchr(byte, &data), pos);
-                    }
-                }
 
             #[test]
             fn qc_correct_memchr() {
