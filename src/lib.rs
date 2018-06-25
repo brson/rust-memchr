@@ -447,8 +447,9 @@ pub mod avx2 {
             Some((offset + cttz_nonzero(bitmask) as isize) as usize)
         }
 
-        if len < 32 {
-            // TODO share this code with the footer
+        #[inline(always)]
+        unsafe fn do_tail(p: *const u8, len: isize,
+                          mut i: isize, q: __m256i) -> Option<usize> {
 
             let align_mask = 32 - 1;
             let overalignment = (p.offset(i) as usize & align_mask) as isize;
@@ -456,9 +457,13 @@ pub mod avx2 {
 
             // FIXME branch for the aligned case
 
+            let rem = len - i;
+            debug_assert!(rem < 32);
             let readable_before = 32 - overalignment;
-            let good_bytes_before = ::std::cmp::min(len, readable_before);
-            let good_bytes_after = len - good_bytes_before;
+            let good_bytes_before = ::std::cmp::min(rem, readable_before);
+            let good_bytes_after = rem - good_bytes_before;
+            debug_assert!(good_bytes_before < 32);
+            debug_assert!(overalignment < 32);
             //println!("gbb {} gba {}", good_bytes_before, good_bytes_after);
 
             // FIXME
@@ -469,10 +474,9 @@ pub mod avx2 {
             if good_bytes_before > simd_threshold {
                 let o = i + 0;
                 let x = _mm256_load_si256(p.offset(o) as *const __m256i);
-                let r = _mm256_cmpeq_epi8(x, q_x15);
+                let r = _mm256_cmpeq_epi8(x, q);
                 let z = _mm256_movemask_epi8(r);
                 let garbage_mask = {
-                    debug_assert!(overalignment < 32);
                     let ones = u32::max_value();
                     let mask = ones << good_bytes_before;
                     let mask = !mask;
@@ -503,7 +507,7 @@ pub mod avx2 {
             if good_bytes_after > simd_threshold {
                 let o = i + 0;
                 let x = _mm256_load_si256(p.offset(o) as *const __m256i);
-                let r = _mm256_cmpeq_epi8(x, q_x15);
+                let r = _mm256_cmpeq_epi8(x, q);
                 let z = _mm256_movemask_epi8(r);
                 let garbage_mask = {
                     let ones = u32::max_value();
@@ -524,6 +528,10 @@ pub mod avx2 {
             debug_assert_eq!(i, len);
 
             return None;
+        }
+
+        if len < 32 {
+            return do_tail(p, len, i, q_x15);
         }
 
         #[inline(always)]
@@ -650,67 +658,10 @@ pub mod avx2 {
         }
 
         if i < len {
-
             debug_assert!(i + 32 > len);
 
-            let align_mask = 32 - 1;
-            let overalignment = (p.offset(i) as usize & align_mask) as isize;
-            i -= overalignment;
-
-            let o = i + 0;
-            let x = _mm256_load_si256(p.offset(o) as *const __m256i);
-            let r = _mm256_cmpeq_epi8(x, q_x15);
-            let z = _mm256_movemask_epi8(r);
-            let garbage_mask = {
-                debug_assert!(overalignment < 32);
-                let max_hi_bytes = ::std::cmp::min(len - (i + overalignment), 31);
-                let ones = u32::max_value();
-                let mask = ones << max_hi_bytes;
-                let mask = !mask;
-                let mask = mask << overalignment;
-                mask as i32
-            };
-            let z = z & garbage_mask;
-            if z != 0 {
-                return off(o, z);
-            }
-
-            i += 32;
-
-            if i >= len {
-                if cfg!(debug) || cfg!(test) {
-                    i += overalignment;
-                    i += len - i;
-                }
-
-                debug_assert_eq!(i, len);
-                return None;
-            }
-
-            debug_assert!(i + 32 > len);
-
-            let o = i + 0;
-            let x = _mm256_load_si256(p.offset(o) as *const __m256i);
-            let r = _mm256_cmpeq_epi8(x, q_x15);
-            let z = _mm256_movemask_epi8(r);
-            let extra_bytes = o as usize + 32 - len as usize;
-            let garbage_mask = {
-                let ones = u32::max_value();
-                let mask = ones << (32 - extra_bytes);
-                let mask = !mask;
-                mask as i32
-            };
-            let z = z & garbage_mask;
-            if z != 0 {
-                return off(o, z);
-            }
-
-            if cfg!(debug) || cfg!(test) {
-                i += 32 - extra_bytes as isize;
-            }
+            return do_tail(p, len, i, q_x15);
         }
-
-        debug_assert_eq!(i, len);
 
         None
     }
@@ -1309,7 +1260,19 @@ mod tests {
                 assert_eq!(None, $memchr(b'a', b"xyz"));
             }
 
-            #[test]
+                #[test]
+                fn foo1() {
+                    let data = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0];
+                    $memchr(0, &data);
+                }
+
+                #[test]
+                fn foo2() {
+                    let data = [25, 20, 27, 44, 43, 52, 0, 36, 54, 45, 86, 50, 38, 78, 29, 57, 38, 43, 17, 27, 75, 55, 92, 23, 85, 7, 31, 68, 92, 67, 93, 80, 59, 10, 61, 72, 13, 6, 44];
+                    $memchr(1, &data);
+                }
+
+                #[test]
             fn qc_never_fail() {
                 fn prop(needle: u8, haystack: Vec<u8>) -> bool {
                     $memchr(needle, &haystack); true
