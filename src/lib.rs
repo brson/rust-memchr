@@ -449,7 +449,8 @@ pub mod avx2 {
 
         #[inline(always)]
         unsafe fn do_tail(p: *const u8, len: isize,
-                          mut i: isize, q: __m256i) -> Option<usize> {
+                          mut i: isize, q: __m256i,
+                          needle: u8) -> Option<usize> {
 
             let rem = len - i;
             debug_assert!(rem < 32);
@@ -459,21 +460,30 @@ pub mod avx2 {
             debug_assert!(overalignment < 32);
 
             // TODO simd threshold
+            let simd_threshold = 1;
 
             if overalignment == 0 {
-                let o = i + 0;
-                let x = _mm256_load_si256(p.offset(o) as *const __m256i);
-                let r = _mm256_cmpeq_epi8(x, q);
-                let z = _mm256_movemask_epi8(r);
-                let garbage_mask = {
-                    let ones = u32::max_value();
-                    let mask = ones << rem;
-                    let mask = !mask;
-                    mask as i32
-                };
-                let z = z & garbage_mask;
-                if z != 0 {
-                    return off(o, z);
+                // TODO: extract this into another function
+                if rem > simd_threshold {
+                    let o = i + 0;
+                    let x = _mm256_load_si256(p.offset(o) as *const __m256i);
+                    let r = _mm256_cmpeq_epi8(x, q);
+                    let z = _mm256_movemask_epi8(r);
+                    let garbage_mask = {
+                        let ones = u32::max_value();
+                        let mask = ones << rem;
+                        let mask = !mask;
+                        mask as i32
+                    };
+                    let z = z & garbage_mask;
+                    if z != 0 {
+                        return off(o, z);
+                    }
+                } else {
+                    assert_eq!(simd_threshold, 1);
+                    if *p.offset(i) == needle {
+                        return Some(i as usize);
+                    }
                 }
 
                 return None;
@@ -487,6 +497,7 @@ pub mod avx2 {
 
             i -= overalignment;
 
+            // TODO: simd threshold
             if good_bytes_before > 0 {
                 let o = i + 0;
                 let x = _mm256_load_si256(p.offset(o) as *const __m256i);
@@ -519,6 +530,7 @@ pub mod avx2 {
 
             debug_assert!(i + 32 > len);
 
+            // TODO: simd threshold
             if good_bytes_after > 0 {
                 let o = i + 0;
                 let x = _mm256_load_si256(p.offset(o) as *const __m256i);
@@ -548,7 +560,7 @@ pub mod avx2 {
         if len < 256 {
             if len < 32 {
                 debug_assert!(len - i < 32);
-                return do_tail(p, len, i, q_x15);
+                return do_tail(p, len, i, q_x15, needle);
             }
 
             if len < 64 {
@@ -558,7 +570,7 @@ pub mod avx2 {
                 i += 32;
 
                 debug_assert!(len - i < 32);
-                return do_tail(p, len, i, q_x15);
+                return do_tail(p, len, i, q_x15, needle);
             }
 
             if len < 256 {
@@ -571,7 +583,7 @@ pub mod avx2 {
                 }
 
                 debug_assert!(len - i < 32);
-                return do_tail(p, len, i, q_x15);
+                return do_tail(p, len, i, q_x15, needle);
             }
         }
         
@@ -702,7 +714,7 @@ pub mod avx2 {
 
         if i < len {
             debug_assert!(len - i < 32);
-            return do_tail(p, len, i, q_x15);
+            return do_tail(p, len, i, q_x15, needle);
         }
 
         None
