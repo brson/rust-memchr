@@ -422,13 +422,377 @@ pub mod avx2 {
     #[cfg(all(not(feature = "use_std"), target_arch = "x86"))]
     use core::arch::x86::*;
 
+    include!("memchr_avx2_call_table.rs");
+
     #[inline(always)]
     pub fn memchr(needle: u8, haystack: &[u8]) -> Option<usize> {
         unsafe { memchr_avx2(needle, haystack) }
     }
 
+    // NB: We don't want to inline this because then the optimizer won't be able
+    // to turn the tail call into a jump table. Effectively, the other,
+    // non-inline avx functions are inlined into this one. TODO: verify this.
+    #[inline(never)]
+    unsafe fn memchr_avx2(needle: u8, haystack: &[u8]) -> Option<usize> {
+        use std::intrinsics::{likely};
+
+        // FIXME: assembly for this is reloading dil into edi unnecessarily...
+        let len = haystack.len();
+        if likely(len < 256) {
+            AVX2FNS[len as u8 as usize](needle, haystack)
+        } else {
+            memchr_avx2_ge256(needle, haystack)
+        }
+    }
+
     #[target_feature(enable = "avx2")]
-    pub unsafe fn memchr_avx2(needle: u8, haystack: &[u8]) -> Option<usize> {
+    unsafe fn memchr_avx2_0(_needle: u8, haystack: &[u8]) -> Option<usize> {
+        debug_assert_eq!(haystack.len(), 0);
+
+        None
+    }
+
+    #[target_feature(enable = "avx2")]
+    unsafe fn memchr_avx2_1(needle: u8, haystack: &[u8]) -> Option<usize> {
+         debug_assert_eq!(haystack.len(), 1);
+
+        let p: *const u8 = haystack.as_ptr();
+        if *p.offset(0) == needle { return Some(0); }
+        return None;
+    }
+
+    #[target_feature(enable = "avx2")]
+    unsafe fn memchr_avx2_2(needle: u8, haystack: &[u8]) -> Option<usize> {
+        debug_assert_eq!(haystack.len(), 2);
+
+        let p: *const u8 = haystack.as_ptr();
+        if *p.offset(0) == needle { return Some(0); }
+        if *p.offset(1) == needle { return Some(1); }
+        return None;
+    }
+
+    #[target_feature(enable = "avx2")]
+    unsafe fn memchr_avx2_3(needle: u8, haystack: &[u8]) -> Option<usize> {
+        debug_assert_eq!(haystack.len(), 3);
+
+        let p: *const u8 = haystack.as_ptr();
+        if *p.offset(0) == needle { return Some(0); }
+        if *p.offset(1) == needle { return Some(1); }
+        if *p.offset(2) == needle { return Some(2); }
+        return None;
+    }
+
+    #[target_feature(enable = "avx2")]
+    unsafe fn memchr_avx2_lt32(needle: u8, haystack: &[u8]) -> Option<usize> {
+        debug_assert!(haystack.len() < 32);
+
+        let p: *const u8 = haystack.as_ptr();
+        let len = haystack.len() as isize;
+        let q_x15 = _mm256_set1_epi8(needle as i8);
+        return do_tail(p, len, 0, q_x15);
+    }
+
+    #[target_feature(enable = "avx2")]
+    unsafe fn memchr_avx2_lt64(needle: u8, haystack: &[u8]) -> Option<usize> {
+        debug_assert!(haystack.len() < 64);
+
+        let p: *const u8 = haystack.as_ptr();
+        let len = haystack.len() as isize;
+        let q_x15 = _mm256_set1_epi8(needle as i8);
+
+        if let Some(r) = cmp(q_x15, p, 0, 0) {
+            return Some(r);
+        }
+
+        return do_tail(p, len, 32, q_x15);
+    }
+
+    #[target_feature(enable = "avx2")]
+    unsafe fn memchr_avx2_lt256(needle: u8, haystack: &[u8]) -> Option<usize> {
+        debug_assert!(haystack.len() < 256);
+
+        let p: *const u8 = haystack.as_ptr();
+        let len = haystack.len() as isize;
+        let q_x15 = _mm256_set1_epi8(needle as i8);
+
+        let mut i = 0;
+        let len_minus = len - 32;
+
+        while i <= len_minus {
+            if let Some(r) = cmp(q_x15, p, i, 0) {
+                return Some(r);
+            }
+            i += 32;
+        }
+
+        debug_assert!(len - i < 32);
+        return do_tail(p, len, i, q_x15);
+    }
+
+    #[target_feature(enable = "avx2")]
+    unsafe fn memchr_avx2_ge256(needle: u8, haystack: &[u8]) -> Option<usize> {
+        debug_assert!(haystack.len() >= 256);
+
+        use std::intrinsics::{likely, unlikely};
+
+        let p: *const u8 = haystack.as_ptr();
+        let len = haystack.len() as isize;
+        debug_assert!(haystack.len() <= isize::max_value() as usize);
+
+        let mut i = 0;
+        let q_x15 = _mm256_set1_epi8(needle as i8);
+
+        // TODO consider stream_load
+        // consider testc_si256 / testnzc_si256 / testz
+        // investigate permute + bmi2 pext
+        // https://stackoverflow.com/questions/36932240/avx2-what-is-the-most-efficient-way-to-pack-left-based-on-a-mask
+        // TODO: Add tests for finding in haystack more than 256 bytes
+
+        let len_minus = len - 320;
+
+        while i <= len_minus {
+            let j = i;
+            let loadcmp = |o| {
+                let x = load(p, j + o);
+                let x = _mm256_cmpeq_epi8(x, q_x15);
+                x
+            };
+
+            let x0 = loadcmp(0);
+            let x1 = loadcmp(32);
+            let x2 = loadcmp(64);
+            let x3 = loadcmp(96);
+            let x4 = loadcmp(128);
+            let x5 = loadcmp(160);
+            let x6 = loadcmp(192);
+            let x7 = loadcmp(224);
+            let x8 = loadcmp(256);
+
+            // TODO: check perf of max_epu for all these ors
+            // LLVM actually optimizes these ors from 9 to 8 and eliminates the
+            // setzero.
+            let sum_01_x8 = _mm256_or_si256(x0, x1);
+            let sum_23_x9 = _mm256_or_si256(x2, x3);
+            let sum_45_x10 = _mm256_or_si256(x4, x5);
+            let sum_67_x11 = _mm256_or_si256(x6, x7);
+
+            let sum_init_x12 = _mm256_setzero_si256();
+            let sum_01_x12 = _mm256_or_si256(sum_init_x12, sum_01_x8);
+            let sum_03_x12 = _mm256_or_si256(sum_01_x12, sum_23_x9);
+            let sum_05_x12 = _mm256_or_si256(sum_03_x12, sum_45_x10);
+            let sum_07_x12 = _mm256_or_si256(sum_05_x12, sum_67_x11);
+            let sum_08_x12 = _mm256_or_si256(sum_07_x12, x8);
+
+            // Just to make it clear we're done with these
+            drop(sum_init_x12);
+            drop(sum_01_x12);
+            drop(sum_03_x12);
+            drop(sum_05_x12);
+            drop(sum_07_x12);
+
+            // Seems to be slightly faster than vptest, though
+            // it uses one more instruction
+            let sum = _mm256_movemask_epi8(sum_08_x12);
+            if sum == 0 {
+                i += 320;
+                continue;
+            }
+
+            // NB: The assembly code for resolving the match is expected to
+            // be straightforword (looking just much as the intrinsics
+            // read), but LLVM is spewing some AVX vomit that I don't
+            // understand. For long searches that doesn't matter much, but
+            // the overhead matters for early matches. Would be good to
+            // resolve.
+
+            #[inline(always)]
+            unsafe fn check_match(o: isize, sumv: __m256i,
+                                  v0: __m256i, v1: __m256i,
+                                  contains_needle: bool) -> Option<usize> {
+
+                debug_assert!(!contains_needle || _mm256_movemask_epi8(sumv) != 0);
+
+                // This movemask is the thing LLVM is generating many extra
+                // instructions for. Using vptest instead doesn't do any
+                // better.
+                // NB: This movemask will be optimized away when contains_needle
+                // is true.
+                let matches = _mm256_movemask_epi8(sumv);
+                if contains_needle || matches != 0 {
+                    let matches_0 = _mm256_movemask_epi8(v0);
+                    if matches_0 != 0 {
+                        return off(o + 0, matches_0)
+                    };
+                    let matches_1 = _mm256_movemask_epi8(v1);
+                    debug_assert!(matches_1 != 0);
+                    return off(o + 32, matches_1);
+                }
+                None
+            }
+
+            let offset = None
+                .or_else(|| check_match(i + 0, sum_01_x8, x0, x1, false))
+                .or_else(|| check_match(i + 64, sum_23_x9, x2, x3, false))
+                .or_else(|| check_match(i + 128, sum_45_x10, x4, x5, false))
+                .or_else(|| check_match(i + 192, sum_67_x11, x6, x7, false))
+                .or_else(|| {
+                    let matches = _mm256_movemask_epi8(x8);
+                    debug_assert!(matches != 0);
+                    return off(i + 256, matches);
+                });
+
+            debug_assert!(offset.is_some());
+            return offset;
+        }
+
+        let len_minus = len - 32;
+        while i <= len_minus  {
+            if let Some(r) = cmp(q_x15, p, i, 0) {
+                return Some(r);
+            }
+
+            i += 32;
+        }
+
+        if i < len {
+            // TODO use the jump table again
+            debug_assert!(len - i < 32);
+            return do_tail(p, len, i, q_x15);
+        }
+
+        None
+    }
+
+    #[inline(always)]
+    unsafe fn off(offset: isize, bitmask: i32) -> Option<usize> {
+        use std::intrinsics::cttz_nonzero;
+        Some((offset + cttz_nonzero(bitmask) as isize) as usize)
+    }
+
+    #[inline(always)]
+    unsafe fn do_tail(p: *const u8, len: isize,
+                      mut i: isize, q: __m256i) -> Option<usize> {
+
+        // TODO: fall back to sse when appropriate
+
+        let rem = len - i;
+        debug_assert!(rem < 32);
+
+        let align_mask = 32 - 1;
+        let overalignment = (p.offset(i) as usize & align_mask) as isize;
+        debug_assert!(overalignment < 32);
+
+        if overalignment == 0 {
+            // TODO: extract this into another function
+            let o = i + 0;
+            let x = _mm256_load_si256(p.offset(o) as *const __m256i);
+            let r = _mm256_cmpeq_epi8(x, q);
+            let z = _mm256_movemask_epi8(r);
+            let garbage_mask = {
+                let ones = u32::max_value();
+                let mask = ones << rem;
+                let mask = !mask;
+                mask as i32
+            };
+            let z = z & garbage_mask;
+            if z != 0 {
+                return off(o, z);
+            }
+
+            return None;
+        }
+
+        let readable_before = 32 - overalignment;
+        let good_bytes_before = ::std::cmp::min(rem, readable_before);
+        let good_bytes_after = rem - good_bytes_before;
+        debug_assert!(good_bytes_before < 32);
+        debug_assert!(overalignment < 32);
+
+        i -= overalignment;
+
+        // TODO: simd threshold
+        // TODO: for the footer call we don't need to mask out
+        // the bytes already read
+        if good_bytes_before > 0 {
+            let o = i + 0;
+            let x = _mm256_load_si256(p.offset(o) as *const __m256i);
+            let r = _mm256_cmpeq_epi8(x, q);
+            let z = _mm256_movemask_epi8(r);
+            let garbage_mask = {
+                let ones = u32::max_value();
+                let mask = ones << good_bytes_before;
+                let mask = !mask;
+                let mask = mask << overalignment;
+                mask as i32
+            };
+            let z = z & garbage_mask;
+            if z != 0 {
+                return off(o, z);
+            }
+        }
+
+        i += 32;
+
+        if i >= len {
+            if cfg!(debug) || cfg!(test) {
+                i += overalignment;
+                i += len - i;
+            }
+
+            debug_assert_eq!(i, len);
+            return None;
+        }
+
+        debug_assert!(i + 32 > len);
+
+        // TODO: simd threshold
+        if good_bytes_after > 0 {
+            let o = i + 0;
+            let x = _mm256_load_si256(p.offset(o) as *const __m256i);
+            let r = _mm256_cmpeq_epi8(x, q);
+            let z = _mm256_movemask_epi8(r);
+            let garbage_mask = {
+                let ones = u32::max_value();
+                let mask = ones << good_bytes_after;
+                let mask = !mask;
+                mask as i32
+            };
+            let z = z & garbage_mask;
+            if z != 0 {
+                return off(o, z);
+            }
+        }
+
+        if cfg!(debug) || cfg!(test) {
+            i += good_bytes_after;
+        }
+
+        debug_assert_eq!(i, len);
+
+        return None;
+    }
+
+    // TODO remove
+    #[inline(always)]
+    unsafe fn load(p: *const u8, o: isize) -> __m256i {
+        _mm256_loadu_si256(p.offset(o) as *const __m256i)
+    }
+
+    #[inline(always)]
+    unsafe fn cmp(q: __m256i, p: *const u8, i: isize, o: isize) -> Option<usize> {
+        let o = i + o;
+        let x = load(p, o);
+        let r = _mm256_cmpeq_epi8(x, q);
+        let z = _mm256_movemask_epi8(r);
+        if z != 0 {
+            return off(o, z);
+        }
+        None
+    }
+
+    #[target_feature(enable = "avx2")]
+    #[allow(unused)]
+    unsafe fn memchr_avx2_(needle: u8, haystack: &[u8]) -> Option<usize> {
         use std::intrinsics::{likely, unlikely, cttz_nonzero};
 
         let p: *const u8 = haystack.as_ptr();
