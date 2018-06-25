@@ -440,8 +440,6 @@ pub mod avx2 {
             }
             1 => {
                 if *p.offset(0) == needle { return Some(0); }
-                if *p.offset(1) == needle { return Some(1); }
-                if *p.offset(2) == needle { return Some(2); }
                 return None;
             }
             2 => {
@@ -458,7 +456,7 @@ pub mod avx2 {
             _ => {}
         }
 
-        if haystack.is_empty() { return None }
+        //println!("test");
 
         debug_assert!(haystack.len() <= isize::max_value() as usize);
 
@@ -483,6 +481,7 @@ pub mod avx2 {
             let align_mask = 32 - 1;
             let overalignment = (p.offset(i) as usize & align_mask) as isize;
             debug_assert!(overalignment < 32);
+            //println!("ovr {}", overalignment);
 
             if overalignment == 0 {
                 // TODO: extract this into another function
@@ -509,6 +508,7 @@ pub mod avx2 {
             let good_bytes_after = rem - good_bytes_before;
             debug_assert!(good_bytes_before < 32);
             debug_assert!(overalignment < 32);
+            //println!("gbb {} gba {}", good_bytes_before, good_bytes_after);
 
             i -= overalignment;
 
@@ -1379,6 +1379,24 @@ mod tests {
                 }
                 quickcheck::quickcheck(prop as fn(u8, Vec<u8>) -> bool);
             }
+
+                #[test]
+                fn foo() {
+                    let v = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+                    let offset = 14;
+                    // test all pointer alignments
+                    let uoffset = (offset & 0xF) as usize;
+                    let data = if uoffset <= v.len() {
+                        &v[uoffset..]
+                    } else {
+                        &v[..]
+                    };
+                    for byte in 0..256u32 {
+                        let byte = byte as u8;
+                        let pos = data.iter().position(|elt| *elt == byte);
+                        assert_eq!($memchr(byte, &data), pos);
+                    }
+                }
 
             #[test]
             fn qc_correct_memchr() {
