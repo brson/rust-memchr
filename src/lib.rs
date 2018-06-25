@@ -452,6 +452,8 @@ pub mod avx2 {
                           mut i: isize, q: __m256i,
                           needle: u8) -> Option<usize> {
 
+            // TODO: fall back to sse when appropriate
+
             let rem = len - i;
             debug_assert!(rem < 32);
 
@@ -460,7 +462,7 @@ pub mod avx2 {
             debug_assert!(overalignment < 32);
 
             // TODO simd threshold
-            let simd_threshold = 1;
+            let simd_threshold = 3;
 
             if overalignment == 0 {
                 // TODO: extract this into another function
@@ -480,8 +482,16 @@ pub mod avx2 {
                         return off(o, z);
                     }
                 } else {
-                    assert_eq!(simd_threshold, 1);
-                    if *p.offset(i) == needle {
+                    assert_eq!(simd_threshold, 3);
+                    if unlikely(*p.offset(i) == needle) {
+                        return Some(i as usize);
+                    }
+                    i += 1;
+                    if unlikely(*p.offset(i) == needle) {
+                        return Some(i as usize);
+                    }
+                    i += 1;
+                    if unlikely(*p.offset(i) == needle) {
                         return Some(i as usize);
                     }
                 }

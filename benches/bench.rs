@@ -90,6 +90,20 @@ fn bench_data_1_found() -> Vec<u8> {
     v
 }
 
+fn bench_data_2_found() -> Vec<u8> {
+    let mut v = aligned_buffer();
+    v.extend(iter::repeat(b'z').take(1).chain(iter::repeat(b'a').take(1)));
+    assert_eq!(v.as_ptr() as usize & (16 - 1), 0);
+    v
+}
+
+fn bench_data_3_found() -> Vec<u8> {
+    let mut v = aligned_buffer();
+    v.extend(iter::repeat(b'z').take(2).chain(iter::repeat(b'a').take(1)));
+    assert_eq!(v.as_ptr() as usize & (16 - 1), 0);
+    v
+}
+
 fn bench_data_128_found_last() -> Vec<u8> {
     let v: Vec<u8> = iter::repeat(b'z').take(127).chain(iter::repeat(b'a').take(1)).collect();
     assert_eq!(v.as_ptr() as usize & (16 - 1), 0);
@@ -275,6 +289,30 @@ macro_rules! memchr_benches {
                 b.iter(|| {
                     for _ in 0..100 {
                         assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            #[bench]
+            fn memchr_2_found(b: &mut test::Bencher) {
+                let haystack = bench_data_2_found();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(1)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            #[bench]
+            fn memchr_3_found(b: &mut test::Bencher) {
+                let haystack = bench_data_3_found();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(2)));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
