@@ -433,6 +433,7 @@ pub mod avx2 {
 
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
+        debug_assert!(haystack.len() <= isize::max_value() as usize);
 
         match len {
             0 => {
@@ -455,8 +456,6 @@ pub mod avx2 {
             }
             _ => {}
         }
-
-        debug_assert!(haystack.len() <= isize::max_value() as usize);
 
         let mut i = 0;
 
