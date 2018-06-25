@@ -456,8 +456,6 @@ pub mod avx2 {
             _ => {}
         }
 
-        //println!("test");
-
         debug_assert!(haystack.len() <= isize::max_value() as usize);
 
         let mut i = 0;
@@ -481,7 +479,6 @@ pub mod avx2 {
             let align_mask = 32 - 1;
             let overalignment = (p.offset(i) as usize & align_mask) as isize;
             debug_assert!(overalignment < 32);
-            //println!("ovr {}", overalignment);
 
             if overalignment == 0 {
                 // TODO: extract this into another function
@@ -508,7 +505,6 @@ pub mod avx2 {
             let good_bytes_after = rem - good_bytes_before;
             debug_assert!(good_bytes_before < 32);
             debug_assert!(overalignment < 32);
-            //println!("gbb {} gba {}", good_bytes_before, good_bytes_after);
 
             i -= overalignment;
 
