@@ -311,7 +311,6 @@ macro_rules! memchr_benches {
                 b.iter(|| {
                     for _ in 0..100 {
                         assert!(black_box($memchr(needle, &haystack) == Some(30)));
-                        panic!()
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
