@@ -772,6 +772,8 @@ pub mod avx2 {
     unsafe fn do_tail(p: *const u8, len: isize,
                       mut i: isize, q: __m256i) -> Option<usize> {
 
+        use std::intrinsics::{likely, unlikely};
+
         // TODO: fall back to sse when appropriate
 
         let rem = len - i;
@@ -781,7 +783,9 @@ pub mod avx2 {
         let overalignment = (p.offset(i) as usize & align_mask) as isize;
         debug_assert!(overalignment < 32);
         //println!("over {}", overalignment);
-        if overalignment == 0 {
+        // Unlikely because byte arrays aren't generally aligned to 32-byte
+        // boundaries
+        if unlikely(overalignment == 0) {
             //println!("no overalignment");
             // TODO: extract this into another function
             let o = i + 0;
