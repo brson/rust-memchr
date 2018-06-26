@@ -812,7 +812,7 @@ pub mod avx2 {
         let good_bytes_after = rem - good_bytes_before;
         debug_assert!(good_bytes_before < 32);
         debug_assert!(overalignment < 32);
-        println!("gbb {} gba {}", good_bytes_before, good_bytes_after);
+        //println!("gbb {} gba {}", good_bytes_before, good_bytes_after);
 
         i -= overalignment;
 
