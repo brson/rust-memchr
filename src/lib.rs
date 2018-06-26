@@ -513,6 +513,7 @@ pub mod avx2 {
 
     #[target_feature(enable = "avx2")]
     unsafe fn memchr_avx2_lt64(needle: u8, haystack: &[u8]) -> Option<usize> {
+        debug_assert!(haystack.len() >= 32);
         debug_assert!(haystack.len() < 64);
 
         let p: *const u8 = haystack.as_ptr();
@@ -528,13 +529,21 @@ pub mod avx2 {
 
     #[target_feature(enable = "avx2")]
     unsafe fn memchr_avx2_lt256(needle: u8, haystack: &[u8]) -> Option<usize> {
+        debug_assert!(haystack.len() >= 64);
         debug_assert!(haystack.len() < 256);
 
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
         let q_x15 = _mm256_set1_epi8(needle as i8);
 
-        let mut i = 0;
+        if let Some(r) = cmp(q_x15, p, 0, 0) {
+            return Some(r);
+        }
+        if let Some(r) = cmp(q_x15, p, 32, 0) {
+            return Some(r);
+        }
+
+        let mut i = 64;
         let len_minus = len - 32;
 
         while i <= len_minus {
@@ -957,6 +966,8 @@ pub mod avx2 {
             let rem = len - i;
             debug_assert!(rem < 32);
 
+            if rem == 0 { return None }
+
             let align_mask = 32 - 1;
             let overalignment = (p.offset(i) as usize & align_mask) as isize;
             debug_assert!(overalignment < 32);
@@ -1184,12 +1195,8 @@ pub mod avx2 {
             i += 32;
         }
 
-        if i < len {
-            debug_assert!(len - i < 32);
-            return do_tail(p, len, i, q_x15);
-        }
-
-        None
+        debug_assert!(len - i < 32);
+        do_tail(p, len, i, q_x15)
     }
 
     pub fn memrchr(needle: u8, haystack: &[u8]) -> Option<usize> {
