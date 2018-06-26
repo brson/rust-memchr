@@ -783,6 +783,7 @@ pub mod avx2 {
         let overalignment = (p.offset(i) as usize & align_mask) as isize;
         debug_assert!(overalignment < 32);
         //println!("over {}", overalignment);
+
         // Unlikely because byte arrays aren't generally aligned to 32-byte
         // boundaries
         if unlikely(overalignment == 0) {
@@ -811,7 +812,7 @@ pub mod avx2 {
         let good_bytes_after = rem - good_bytes_before;
         debug_assert!(good_bytes_before < 32);
         debug_assert!(overalignment < 32);
-        //println!("gbb {} gba {}", good_bytes_before, good_bytes_after);
+        println!("gbb {} gba {}", good_bytes_before, good_bytes_after);
 
         i -= overalignment;
 
