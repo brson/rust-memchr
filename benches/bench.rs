@@ -30,8 +30,9 @@ fn bench_data_63() -> Vec<u8> {
 }
 
 fn bench_data_15() -> Vec<u8> {
-    let v: Vec<u8> = iter::repeat(b'z').take(15).collect();
-    assert_eq!(v.as_ptr() as usize & (16 - 1), 0);
+    let mut v: Vec<u8> = aligned_buffer();
+    v.extend(iter::repeat(b'z').take(15));
+    assert_eq!(v.as_ptr() as usize & (32 - 1), 0);
     v
 }
 
@@ -74,8 +75,9 @@ fn bench_data_31_overaligned_31_found_31() -> VecDeque<u8> {
 }
 
 fn bench_data_31_found_31() -> Vec<u8> {
-    let v: Vec<_> = iter::repeat(b'z').take(30).chain(iter::repeat(b'a').take(1)).collect();
-    assert_eq!(v.as_slice().as_ptr() as usize & (16 - 1), 0);
+    let mut v: Vec<u8> = aligned_buffer();
+    v.extend(iter::repeat(b'z').take(30).chain(iter::repeat(b'a').take(1)));
+    assert_eq!(v.as_slice().as_ptr() as usize & (32 - 1), 0);
     v
 }
 
@@ -92,21 +94,21 @@ fn bench_data_16_overaligned_8_found_16() -> VecDeque<u8> {
 fn bench_data_1_found() -> Vec<u8> {
     let mut v = aligned_buffer();
     v.extend(iter::repeat(b'a').take(1));
-    assert_eq!(v.as_ptr() as usize & (16 - 1), 0);
+    assert_eq!(v.as_ptr() as usize & (32 - 1), 0);
     v
 }
 
 fn bench_data_2_found() -> Vec<u8> {
     let mut v = aligned_buffer();
     v.extend(iter::repeat(b'z').take(1).chain(iter::repeat(b'a').take(1)));
-    assert_eq!(v.as_ptr() as usize & (16 - 1), 0);
+    assert_eq!(v.as_ptr() as usize & (32 - 1), 0);
     v
 }
 
 fn bench_data_3_found() -> Vec<u8> {
     let mut v = aligned_buffer();
     v.extend(iter::repeat(b'z').take(2).chain(iter::repeat(b'a').take(1)));
-    assert_eq!(v.as_ptr() as usize & (16 - 1), 0);
+    assert_eq!(v.as_ptr() as usize & (32 - 1), 0);
     v
 }
 
@@ -193,12 +195,13 @@ macro_rules! memchr_benches {
             }
 
             #[bench]
-            fn memchr_15(b: &mut test::Bencher) {
+            fn memchr_15b(b: &mut test::Bencher) {
                 let haystack = bench_data_15();
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
                         assert!(black_box($memchr(needle, &haystack).is_none()));
+                        //panic!();
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;

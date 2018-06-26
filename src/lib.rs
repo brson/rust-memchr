@@ -780,8 +780,9 @@ pub mod avx2 {
         let align_mask = 32 - 1;
         let overalignment = (p.offset(i) as usize & align_mask) as isize;
         debug_assert!(overalignment < 32);
-
+        //println!("over {}", overalignment);
         if overalignment == 0 {
+            //println!("no overalignment");
             // TODO: extract this into another function
             let o = i + 0;
             let x = _mm256_load_si256(p.offset(o) as *const __m256i);
@@ -806,6 +807,7 @@ pub mod avx2 {
         let good_bytes_after = rem - good_bytes_before;
         debug_assert!(good_bytes_before < 32);
         debug_assert!(overalignment < 32);
+        //println!("gbb {} gba {}", good_bytes_before, good_bytes_after);
 
         i -= overalignment;
 
