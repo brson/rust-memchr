@@ -838,17 +838,8 @@ pub mod avx2 {
 
         i += 32;
 
-        if i >= len {
-            if cfg!(debug) || cfg!(test) {
-                i += overalignment;
-                i += len - i;
-            }
-
-            debug_assert_eq!(i, len);
-            return None;
-        }
-
-        debug_assert!(i + 32 > len);
+        debug_assert!(i >= len);
+        debug_assert!(i + 32 >= len, good_bytes_after > 0);
 
         // TODO: simd threshold
         if good_bytes_after > 0 {
