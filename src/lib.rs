@@ -567,7 +567,7 @@ pub mod avx2 {
         // https://stackoverflow.com/questions/36932240/avx2-what-is-the-most-efficient-way-to-pack-left-based-on-a-mask
         // TODO: Add tests for finding in haystack more than 256 bytes
 
-        let len_minus = len - 320;
+        let len_minus = len - 288;
 
         while i <= len_minus {
             let j = i;
@@ -613,7 +613,7 @@ pub mod avx2 {
             // it uses one more instruction
             let sum = _mm256_movemask_epi8(sum_08_x12);
             if sum == 0 {
-                i += 320;
+                i += 288;
                 continue;
             }
 
@@ -1007,7 +1007,7 @@ pub mod avx2 {
         // https://stackoverflow.com/questions/36932240/avx2-what-is-the-most-efficient-way-to-pack-left-based-on-a-mask
         // TODO: Add tests for finding in haystack more than 256 bytes
 
-        let len_minus = len - 320;
+        let len_minus = len - 288;
 
         while i <= len_minus {
             let j = i;
@@ -1053,7 +1053,7 @@ pub mod avx2 {
             // it uses one more instruction
             let sum = _mm256_movemask_epi8(sum_08_x12);
             if sum == 0 {
-                i += 320;
+                i += 288;
                 continue;
             }
 
