@@ -558,6 +558,10 @@ pub mod avx2 {
         let len = haystack.len() as isize;
         debug_assert!(haystack.len() <= isize::max_value() as usize);
 
+        if unlikely(len < 288) {
+            return memchr_avx2_lt288(needle, haystack);
+        }
+
         let mut i = 0;
         let q_x15 = _mm256_set1_epi8(needle as i8);
 
@@ -624,31 +628,6 @@ pub mod avx2 {
             // the overhead matters for early matches. Would be good to
             // resolve.
 
-            #[inline(always)]
-            unsafe fn check_match(o: isize, sumv: __m256i,
-                                  v0: __m256i, v1: __m256i,
-                                  contains_needle: bool) -> Option<usize> {
-
-                debug_assert!(!contains_needle || _mm256_movemask_epi8(sumv) != 0);
-
-                // This movemask is the thing LLVM is generating many extra
-                // instructions for. Using vptest instead doesn't do any
-                // better.
-                // NB: This movemask will be optimized away when contains_needle
-                // is true.
-                let matches = _mm256_movemask_epi8(sumv);
-                if contains_needle || matches != 0 {
-                    let matches_0 = _mm256_movemask_epi8(v0);
-                    if matches_0 != 0 {
-                        return off(o + 0, matches_0)
-                    };
-                    let matches_1 = _mm256_movemask_epi8(v1);
-                    debug_assert!(matches_1 != 0);
-                    return off(o + 32, matches_1);
-                }
-                None
-            }
-
             let offset = None
                 .or_else(|| check_match(i + 0, sum_01_x8, x0, x1, false))
                 .or_else(|| check_match(i + 64, sum_23_x9, x2, x3, false))
@@ -674,11 +653,103 @@ pub mod avx2 {
         }
 
         if i < len {
-            // TODO use the jump table again
             debug_assert!(len - i < 32);
             return do_tail(p, len, i, q_x15);
         }
 
+        None
+    }
+
+    #[target_feature(enable = "avx2")]
+    unsafe fn memchr_avx2_lt288(needle: u8, haystack: &[u8]) -> Option<usize> {
+        debug_assert!(haystack.len() >= 256);
+
+        use std::intrinsics::{likely, unlikely};
+
+        let p: *const u8 = haystack.as_ptr();
+        let len = haystack.len() as isize;
+        debug_assert!(haystack.len() <= isize::max_value() as usize);
+
+        let mut i = 0;
+        let q_x15 = _mm256_set1_epi8(needle as i8);
+
+        let j = i;
+        let loadcmp = |o| {
+            let x = load(p, j + o);
+            let x = _mm256_cmpeq_epi8(x, q_x15);
+            x
+        };
+
+        let x0 = loadcmp(0);
+        let x1 = loadcmp(32);
+        let x2 = loadcmp(64);
+        let x3 = loadcmp(96);
+        let x4 = loadcmp(128);
+        let x5 = loadcmp(160);
+        let x6 = loadcmp(192);
+        let x7 = loadcmp(224);
+
+        let sum_01_x8 = _mm256_or_si256(x0, x1);
+        let sum_23_x9 = _mm256_or_si256(x2, x3);
+        let sum_45_x10 = _mm256_or_si256(x4, x5);
+        let sum_67_x11 = _mm256_or_si256(x6, x7);
+
+        let sum_init_x12 = _mm256_setzero_si256();
+        let sum_01_x12 = _mm256_or_si256(sum_init_x12, sum_01_x8);
+        let sum_03_x12 = _mm256_or_si256(sum_01_x12, sum_23_x9);
+        let sum_05_x12 = _mm256_or_si256(sum_03_x12, sum_45_x10);
+        let sum_07_x12 = _mm256_or_si256(sum_05_x12, sum_67_x11);
+
+        // Just to make it clear we're done with these
+        drop(sum_init_x12);
+        drop(sum_01_x12);
+        drop(sum_03_x12);
+        drop(sum_05_x12);
+
+        let sum = _mm256_movemask_epi8(sum_07_x12);
+        if sum != 0 {
+            let offset = None
+                .or_else(|| check_match(i + 0, sum_01_x8, x0, x1, false))
+                .or_else(|| check_match(i + 64, sum_23_x9, x2, x3, false))
+                .or_else(|| check_match(i + 128, sum_45_x10, x4, x5, false))
+                .or_else(|| check_match(i + 192, sum_67_x11, x6, x7, false));
+
+            debug_assert!(offset.is_some());
+            return offset;
+        }
+
+        i += 256;
+
+        if i < len {
+            debug_assert!(len - i < 32);
+            return do_tail(p, len, i, q_x15);
+        }
+
+        None
+    }
+
+    #[inline(always)]
+    unsafe fn check_match(o: isize, sumv: __m256i,
+                          v0: __m256i, v1: __m256i,
+                          contains_needle: bool) -> Option<usize> {
+
+        debug_assert!(!contains_needle || _mm256_movemask_epi8(sumv) != 0);
+
+        // This movemask is the thing LLVM is generating many extra
+        // instructions for. Using vptest instead doesn't do any
+        // better.
+        // NB: This movemask will be optimized away when contains_needle
+        // is true.
+        let matches = _mm256_movemask_epi8(sumv);
+        if contains_needle || matches != 0 {
+            let matches_0 = _mm256_movemask_epi8(v0);
+            if matches_0 != 0 {
+                return off(o + 0, matches_0)
+            };
+            let matches_1 = _mm256_movemask_epi8(v1);
+            debug_assert!(matches_1 != 0);
+            return off(o + 32, matches_1);
+        }
         None
     }
 
