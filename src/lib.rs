@@ -695,6 +695,7 @@ pub mod avx2 {
     #[inline(always)]
     unsafe fn memchr_avx2_lt288(needle: u8, haystack: &[u8]) -> Option<usize> {
         debug_assert!(haystack.len() >= 256);
+        debug_assert!(haystack.len() < 288);
 
         use std::intrinsics::{likely, unlikely};
 
