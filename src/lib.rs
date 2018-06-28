@@ -475,24 +475,7 @@ pub mod avx2 {
 
     #[target_feature(enable = "avx2")]
     unsafe fn memchr_avx2_3(needle: u8, haystack: &[u8]) -> Option<usize> {
-        //use std::intrinsics::cttz_nonzero;
-
         debug_assert_eq!(haystack.len(), 3);
-
-        // FIXME: Hand-implement this like the autovectorizor
-        // Hand-implement lt32 like this is autovectorizered
-        /*let p: *const u8 = haystack.as_ptr();
-        let r1 = *p.offset(0) == needle;
-        let r2 = *p.offset(1) == needle;
-        let r3 = *p.offset(2) == needle;
-        let mut mask = 0u8;
-        mask |= (r1 as u8) << 0;
-        mask |= (r2 as u8) << 1;
-        mask |= (r3 as u8) << 2;
-        if mask != 0 {
-            return Some(cttz_nonzero(mask as usize));
-        }
-        return None;*/
 
         let p: *const u8 = haystack.as_ptr();
         if *p.offset(0) == needle { return Some(0); }
@@ -521,11 +504,6 @@ pub mod avx2 {
         debug_assert!(haystack.len() >= 16);
         debug_assert!(haystack.len() < 32);
 
-        /*let p: *const u8 = haystack.as_ptr();
-        let len = haystack.len() as isize;
-        let q_x15 = _mm256_set1_epi8(needle as i8);
-        return do_tail(p, len, 0, q_x15);*/
-
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
         let q = _mm_set1_epi8(needle as i8);
@@ -534,8 +512,13 @@ pub mod avx2 {
             return Some(r);
         }
 
-        let remstack = ::std::slice::from_raw_parts(p.offset(16), len as usize - 16);
-        return memchr_avx2_lt16(needle, remstack).map(|i| i + 16);
+        let mut i = 16;
+        while i < len {
+            if *p.offset(i) == needle { return Some(i as usize) }
+            i += 1;
+        }
+
+        None
     }
 
     #[target_feature(enable = "avx2")]
