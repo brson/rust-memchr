@@ -548,7 +548,7 @@ pub mod avx2 {
             return Some(r);
         }
 
-        return do_tail(needle, p, len, 32, q);
+        do_tail(needle, p, len, 32, q)
     }
 
     #[target_feature(enable = "avx2")]
