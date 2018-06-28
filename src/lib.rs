@@ -494,8 +494,7 @@ pub mod avx2 {
         memchr_avx2_lt16_(needle, p, len, 0)
     }
 
-    #[inline]
-    #[target_feature(enable = "avx2")]
+    #[inline(always)]
     unsafe fn memchr_avx2_lt16_(needle: u8, p: *const u8,
                                 len: isize, mut i: isize) -> Option<usize> {
         debug_assert!(len - i < 16);
@@ -517,11 +516,20 @@ pub mod avx2 {
         let len = haystack.len() as isize;
         let q = _mm_set1_epi8(needle as i8);
 
-        if let Some(r) = cmp_16(q, p, 0, 0) {
+        memchr_avx2_lt32_(needle, p, len, 0, q)
+    }
+
+    #[inline(always)]
+    unsafe fn memchr_avx2_lt32_(needle: u8, p: *const u8, len: isize,
+                                i: isize, q: __m128i) -> Option<usize> {
+        assert!(len - i >= 16);
+        assert!(len - i < 32);
+
+        if let Some(r) = cmp_16(q, p, i, 0) {
             return Some(r);
         }
 
-        memchr_avx2_lt16_(needle, p, len, 16)
+        memchr_avx2_lt16_(needle, p, len, i + 16)
     }
 
     #[target_feature(enable = "avx2")]
@@ -537,7 +545,7 @@ pub mod avx2 {
             return Some(r);
         }
 
-        return do_tail(p, len, 32, q_x15);
+        return do_tail(needle, p, len, 32, q_x15);
     }
 
     #[target_feature(enable = "avx2")]
@@ -567,7 +575,7 @@ pub mod avx2 {
         }
 
         debug_assert!(len - i < 32);
-        return do_tail(p, len, i, q_x15);
+        return do_tail(needle, p, len, i, q_x15);
     }
 
     #[target_feature(enable = "avx2")]
@@ -676,7 +684,7 @@ pub mod avx2 {
 
         if i < len {
             debug_assert!(len - i < 32);
-            return do_tail(p, len, i, q_x15);
+            return do_tail(needle, p, len, i, q_x15);
         }
 
         None
@@ -744,7 +752,7 @@ pub mod avx2 {
 
         if i < len {
             debug_assert!(len - i < 32);
-            return do_tail(p, len, i, q_x15);
+            return do_tail(needle, p, len, i, q_x15);
         }
 
         None
@@ -782,8 +790,22 @@ pub mod avx2 {
     }
 
     #[inline(always)]
-    unsafe fn do_tail(p: *const u8, len: isize,
-                      mut i: isize, q: __m256i) -> Option<usize> {
+    unsafe fn do_tail(needle: u8, p: *const u8, len: isize,
+                      i: isize, q: __m256i) -> Option<usize> {
+        debug_assert!(len - i < 32);
+
+        if len - i < 16 {
+            memchr_avx2_lt16_(needle, p, len, i)
+        } else {
+            let q = _mm256_extracti128_si256(q, 0);
+            memchr_avx2_lt32_(needle, p, len, i, q)
+        }
+    }
+
+    #[allow(unused)]
+    #[inline(always)]
+    unsafe fn do_tail_(p: *const u8, len: isize,
+                       mut i: isize, q: __m256i) -> Option<usize> {
 
         use std::intrinsics::{likely, unlikely};
 
