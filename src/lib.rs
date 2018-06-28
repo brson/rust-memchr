@@ -501,14 +501,40 @@ pub mod avx2 {
         return None;
     }
 
-    #[target_feature(enable = "avx2")]
-    unsafe fn memchr_avx2_lt32(needle: u8, haystack: &[u8]) -> Option<usize> {
+    unsafe fn memchr_avx2_lt16(needle: u8, haystack: &[u8]) -> Option<usize> {
         debug_assert!(haystack.len() < 32);
 
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
+        let mut i = 0;
+        while i < len {
+            if *p.offset(i) == needle { return Some(i as usize) }
+            i += 1;
+        }
+
+        None
+    }
+
+    #[target_feature(enable = "avx2")]
+    unsafe fn memchr_avx2_lt32(needle: u8, haystack: &[u8]) -> Option<usize> {
+        debug_assert!(haystack.len() >= 16);
+        debug_assert!(haystack.len() < 32);
+
+        /*let p: *const u8 = haystack.as_ptr();
+        let len = haystack.len() as isize;
         let q_x15 = _mm256_set1_epi8(needle as i8);
-        return do_tail(p, len, 0, q_x15);
+        return do_tail(p, len, 0, q_x15);*/
+
+        let p: *const u8 = haystack.as_ptr();
+        let len = haystack.len() as isize;
+        let q = _mm_set1_epi8(needle as i8);
+
+        if let Some(r) = cmp_16(q, p, 0, 0) {
+            return Some(r);
+        }
+
+        let remstack = ::std::slice::from_raw_parts(p.offset(16), len as usize - 16);
+        return memchr_avx2_lt16(needle, remstack).map(|i| i + 16);
     }
 
     #[target_feature(enable = "avx2")]
@@ -881,6 +907,18 @@ pub mod avx2 {
         let x = load(p, o);
         let r = _mm256_cmpeq_epi8(x, q);
         let z = _mm256_movemask_epi8(r);
+        if z != 0 {
+            return off(o, z);
+        }
+        None
+    }
+
+    #[inline(always)]
+    unsafe fn cmp_16(q: __m128i, p: *const u8, i: isize, o: isize) -> Option<usize> {
+        let o = i + o;
+        let x = _mm_loadu_si128(p.offset(i) as *const __m128i);
+        let r = _mm_cmpeq_epi8(x, q);
+        let z = _mm_movemask_epi8(r);
         if z != 0 {
             return off(o, z);
         }
