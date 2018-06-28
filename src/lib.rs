@@ -528,7 +528,7 @@ pub mod avx2 {
         assert!(len - i >= 16);
         assert!(len - i < 32);
 
-        if let Some(r) = cmp_16(q, p, i, 0) {
+        if let Some(r) = cmp_16(q, p, i) {
             return Some(r);
         }
 
@@ -914,13 +914,12 @@ pub mod avx2 {
     }
 
     #[inline(always)]
-    unsafe fn cmp_16(q: __m128i, p: *const u8, i: isize, o: isize) -> Option<usize> {
-        let o = i + o;
+    unsafe fn cmp_16(q: __m128i, p: *const u8, i: isize) -> Option<usize> {
         let x = _mm_loadu_si128(p.offset(i) as *const __m128i);
         let r = _mm_cmpeq_epi8(x, q);
         let z = _mm_movemask_epi8(r);
         if z != 0 {
-            return off(o, z);
+            return off(i, z);
         }
         None
     }
