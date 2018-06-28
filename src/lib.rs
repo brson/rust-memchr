@@ -460,7 +460,8 @@ pub mod avx2 {
 
         let p: *const u8 = haystack.as_ptr();
         if *p.offset(0) == needle { return Some(0); }
-        return None;
+
+        None
     }
 
     #[target_feature(enable = "avx2")]
@@ -470,7 +471,8 @@ pub mod avx2 {
         let p: *const u8 = haystack.as_ptr();
         if *p.offset(0) == needle { return Some(0); }
         if *p.offset(1) == needle { return Some(1); }
-        return None;
+
+        None
     }
 
     #[target_feature(enable = "avx2")]
@@ -481,7 +483,8 @@ pub mod avx2 {
         if *p.offset(0) == needle { return Some(0); }
         if *p.offset(1) == needle { return Some(1); }
         if *p.offset(2) == needle { return Some(2); }
-        return None;
+
+        None
     }
 
     #[target_feature(enable = "avx2")]
@@ -539,13 +542,13 @@ pub mod avx2 {
 
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
-        let q_x15 = _mm256_set1_epi8(needle as i8);
+        let q = _mm256_set1_epi8(needle as i8);
 
-        if let Some(r) = cmp(q_x15, p, 0, 0) {
+        if let Some(r) = cmp(q, p, 0, 0) {
             return Some(r);
         }
 
-        return do_tail(needle, p, len, 32, q_x15);
+        return do_tail(needle, p, len, 32, q);
     }
 
     #[target_feature(enable = "avx2")]
@@ -555,12 +558,12 @@ pub mod avx2 {
 
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
-        let q_x15 = _mm256_set1_epi8(needle as i8);
+        let q = _mm256_set1_epi8(needle as i8);
 
-        if let Some(r) = cmp(q_x15, p, 0, 0) {
+        if let Some(r) = cmp(q, p, 0, 0) {
             return Some(r);
         }
-        if let Some(r) = cmp(q_x15, p, 32, 0) {
+        if let Some(r) = cmp(q, p, 32, 0) {
             return Some(r);
         }
 
@@ -568,14 +571,15 @@ pub mod avx2 {
         let len_minus = len - 32;
 
         while i <= len_minus {
-            if let Some(r) = cmp(q_x15, p, i, 0) {
+            if let Some(r) = cmp(q, p, i, 0) {
                 return Some(r);
             }
             i += 32;
         }
 
         debug_assert!(len - i < 32);
-        return do_tail(needle, p, len, i, q_x15);
+
+        do_tail(needle, p, len, i, q)
     }
 
     #[target_feature(enable = "avx2")]
@@ -682,12 +686,9 @@ pub mod avx2 {
             i += 32;
         }
 
-        if i < len {
-            debug_assert!(len - i < 32);
-            return do_tail(needle, p, len, i, q_x15);
-        }
+        debug_assert!(len - i < 32);
 
-        None
+        do_tail(needle, p, len, i, q_x15)
     }
 
     #[target_feature(enable = "avx2")]
@@ -750,12 +751,9 @@ pub mod avx2 {
 
         i += 256;
 
-        if i < len {
-            debug_assert!(len - i < 32);
-            return do_tail(needle, p, len, i, q_x15);
-        }
+        debug_assert!(len - i < 32);
 
-        None
+        do_tail(needle, p, len, i, q_x15)
     }
 
     #[inline(always)]
