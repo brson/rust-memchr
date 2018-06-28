@@ -501,6 +501,7 @@ pub mod avx2 {
         return None;
     }
 
+    #[target_feature(enable = "avx2")]
     unsafe fn memchr_avx2_lt16(needle: u8, haystack: &[u8]) -> Option<usize> {
         debug_assert!(haystack.len() < 32);
 
