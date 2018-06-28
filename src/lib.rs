@@ -732,7 +732,6 @@ pub mod avx2 {
         let sum_05_x12 = _mm256_or_si256(sum_03_x12, sum_45_x10);
         let sum_07_x12 = _mm256_or_si256(sum_05_x12, sum_67_x11);
 
-        // Just to make it clear we're done with these
         drop(sum_init_x12);
         drop(sum_01_x12);
         drop(sum_03_x12);
