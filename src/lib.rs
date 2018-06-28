@@ -544,7 +544,7 @@ pub mod avx2 {
         let len = haystack.len() as isize;
         let q = _mm256_set1_epi8(needle as i8);
 
-        if let Some(r) = cmp(q, p, 0, 0) {
+        if let Some(r) = cmp(q, p, 0) {
             return Some(r);
         }
 
@@ -560,10 +560,10 @@ pub mod avx2 {
         let len = haystack.len() as isize;
         let q = _mm256_set1_epi8(needle as i8);
 
-        if let Some(r) = cmp(q, p, 0, 0) {
+        if let Some(r) = cmp(q, p, 0) {
             return Some(r);
         }
-        if let Some(r) = cmp(q, p, 32, 0) {
+        if let Some(r) = cmp(q, p, 32) {
             return Some(r);
         }
 
@@ -571,7 +571,7 @@ pub mod avx2 {
         let len_minus = len - 32;
 
         while i <= len_minus {
-            if let Some(r) = cmp(q, p, i, 0) {
+            if let Some(r) = cmp(q, p, i) {
                 return Some(r);
             }
             i += 32;
@@ -679,7 +679,7 @@ pub mod avx2 {
 
         let len_minus = len - 32;
         while i <= len_minus  {
-            if let Some(r) = cmp(q_x15, p, i, 0) {
+            if let Some(r) = cmp(q_x15, p, i) {
                 return Some(r);
             }
 
@@ -909,13 +909,12 @@ pub mod avx2 {
     }
 
     #[inline(always)]
-    unsafe fn cmp(q: __m256i, p: *const u8, i: isize, o: isize) -> Option<usize> {
-        let o = i + o;
-        let x = load(p, o);
+    unsafe fn cmp(q: __m256i, p: *const u8, i: isize) -> Option<usize> {
+        let x = _mm256_loadu_si256(p.offset(i) as *const __m256i);
         let r = _mm256_cmpeq_epi8(x, q);
         let z = _mm256_movemask_epi8(r);
         if z != 0 {
-            return off(o, z);
+            return off(i, z);
         }
         None
     }
