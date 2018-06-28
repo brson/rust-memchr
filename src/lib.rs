@@ -610,7 +610,7 @@ pub mod avx2 {
         while i <= len_minus {
             let j = i;
             let loadcmp = |o| {
-                let x = load(p, j + o);
+                let x = _mm256_loadu_si256(p.offset(j + o) as *const __m256i);
                 let x = _mm256_cmpeq_epi8(x, q_x15);
                 x
             };
@@ -706,7 +706,7 @@ pub mod avx2 {
 
         let j = i;
         let loadcmp = |o| {
-            let x = load(p, j + o);
+            let x = _mm256_loadu_si256(p.offset(j + o) as *const __m256i);
             let x = _mm256_cmpeq_epi8(x, q_x15);
             x
         };
@@ -900,12 +900,6 @@ pub mod avx2 {
         debug_assert_eq!(i, len);
 
         return None;
-    }
-
-    // TODO remove
-    #[inline(always)]
-    unsafe fn load(p: *const u8, o: isize) -> __m256i {
-        _mm256_loadu_si256(p.offset(o) as *const __m256i)
     }
 
     #[inline(always)]
