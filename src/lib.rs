@@ -671,7 +671,7 @@ pub mod avx2 {
                 .or_else(|| {
                     let matches = _mm256_movemask_epi8(x8);
                     debug_assert!(matches != 0);
-                    return off(i + 256, matches);
+                    off(i + 256, matches)
                 });
 
             debug_assert!(offset.is_some());
