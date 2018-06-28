@@ -486,11 +486,20 @@ pub mod avx2 {
 
     #[target_feature(enable = "avx2")]
     unsafe fn memchr_avx2_lt16(needle: u8, haystack: &[u8]) -> Option<usize> {
-        debug_assert!(haystack.len() < 32);
+        debug_assert!(haystack.len() < 16);
 
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
-        let mut i = 0;
+
+        memchr_avx2_lt16_(needle, p, len, 0)
+    }
+
+    #[inline]
+    #[target_feature(enable = "avx2")]
+    unsafe fn memchr_avx2_lt16_(needle: u8, p: *const u8,
+                                len: isize, mut i: isize) -> Option<usize> {
+        debug_assert!(len - i < 16);
+        
         while i < len {
             if *p.offset(i) == needle { return Some(i as usize) }
             i += 1;
@@ -512,13 +521,7 @@ pub mod avx2 {
             return Some(r);
         }
 
-        let mut i = 16;
-        while i < len {
-            if *p.offset(i) == needle { return Some(i as usize) }
-            i += 1;
-        }
-
-        None
+        memchr_avx2_lt16_(needle, p, len, 16)
     }
 
     #[target_feature(enable = "avx2")]
