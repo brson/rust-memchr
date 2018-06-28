@@ -786,7 +786,7 @@ pub mod avx2 {
 
         // Unlikely because byte arrays aren't generally aligned to 32-byte
         // boundaries
-        /*if unlikely(overalignment == 0) {
+        if unlikely(overalignment == 0) {
             //println!("no overalignment");
             // TODO: extract this into another function
             let o = i + 0;
@@ -805,7 +805,7 @@ pub mod avx2 {
             }
 
             return None;
-        }*/
+        }
 
         let readable_before = 32 - overalignment;
         let good_bytes_before = ::std::cmp::min(rem, readable_before);
