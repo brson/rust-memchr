@@ -786,7 +786,7 @@ pub mod avx2 {
 
         // Unlikely because byte arrays aren't generally aligned to 32-byte
         // boundaries
-        if unlikely(overalignment == 0) {
+        /*if unlikely(overalignment == 0) {
             //println!("no overalignment");
             // TODO: extract this into another function
             let o = i + 0;
@@ -805,7 +805,7 @@ pub mod avx2 {
             }
 
             return None;
-        }
+        }*/
 
         let readable_before = 32 - overalignment;
         let good_bytes_before = ::std::cmp::min(rem, readable_before);
@@ -837,10 +837,10 @@ pub mod avx2 {
             }
         }
 
-        i += 32;
+        i += overalignment + good_bytes_before;
 
-        debug_assert!(i >= len);
-        debug_assert!(i + 32 >= len, good_bytes_after > 0);
+        //debug_assert!(i >= len);
+        debug_assert!(i + 32 >= len);
 
         // TODO: simd threshold
         if good_bytes_after > 0 {
