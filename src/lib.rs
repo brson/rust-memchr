@@ -525,8 +525,8 @@ pub mod avx2 {
     #[inline(always)]
     unsafe fn memchr_avx2_lt32_(needle: u8, p: *const u8, len: isize,
                                 i: isize, q: __m128i) -> Option<usize> {
-        assert!(len - i >= 16);
-        assert!(len - i < 32);
+        debug_assert!(len - i >= 16);
+        debug_assert!(len - i < 32);
 
         if let Some(r) = cmp_16(q, p, i) {
             return Some(r);
