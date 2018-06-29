@@ -422,6 +422,22 @@ pub mod avx2 {
     #[cfg(all(not(feature = "use_std"), target_arch = "x86"))]
     use core::arch::x86::*;
 
+    // TODO tests to add
+    // find early in stride bytes
+    // find late in stride bytes
+    // find in tail after stride
+    // find last in 5 bytes
+    // find last in 7 bytes
+    // find last in 8 bytes
+    // find first in 8 bytes
+    // find first in 16 bytes
+    // find first in 32 bytes
+    // find 4th in 7 bytes
+    // find first in 65 bytes
+    // find last in 65 bytes
+    // find first in 255 bytes
+    // find last in 255 bytes
+
     include!("memchr_avx2_call_table.rs");
 
     #[inline(always)]
@@ -505,7 +521,6 @@ pub mod avx2 {
                                 len: isize, mut i: isize) -> Option<usize> {
         debug_assert!(len - i < 16);
 
-        // TODO: try unaligned dword loads
         while i < len {
             if *p.offset(i) == needle { return Some(i as usize) }
             i += 1;
