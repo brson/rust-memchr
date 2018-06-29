@@ -510,26 +510,9 @@ pub mod avx2 {
 
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
+        let q = _mm256_set1_epi8(needle as i8);
 
-        if *p.offset(0) == needle { return Some(0); }
-        if *p.offset(1) == needle { return Some(1); }
-        if *p.offset(2) == needle { return Some(2); }
-        if *p.offset(3) == needle { return Some(3); }
-
-        memchr_avx2_lt16_(needle, p, len, 0 + 4)
-    }
-
-    #[inline(always)]
-    unsafe fn memchr_avx2_lt16_(needle: u8, p: *const u8,
-                                len: isize, mut i: isize) -> Option<usize> {
-        debug_assert!(len - i < 16);
-
-        while i < len {
-            if *p.offset(i) == needle { return Some(i as usize) }
-            i += 1;
-        }
-
-        None
+        do_tail(p, len, 0, q)
     }
 
     #[target_feature(enable = "avx2")]
@@ -539,22 +522,9 @@ pub mod avx2 {
 
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
-        let q = _mm_set1_epi8(needle as i8);
+        let q = _mm256_set1_epi8(needle as i8);
 
-        memchr_avx2_lt32_(needle, p, len, 0, q)
-    }
-
-    #[inline(always)]
-    unsafe fn memchr_avx2_lt32_(needle: u8, p: *const u8, len: isize,
-                                i: isize, q: __m128i) -> Option<usize> {
-        debug_assert!(len - i >= 16);
-        debug_assert!(len - i < 32);
-
-        if let Some(r) = cmp_16(q, p, i) {
-            return Some(r);
-        }
-
-        memchr_avx2_lt16_(needle, p, len, i + 16)
+        do_tail(p, len, 0, q)
     }
 
     #[target_feature(enable = "avx2")]
@@ -570,7 +540,7 @@ pub mod avx2 {
             return Some(r);
         }
 
-        do_tail(needle, p, len, 32, q)
+        do_tail(p, len, 32, q)
     }
 
     #[target_feature(enable = "avx2")]
@@ -602,7 +572,7 @@ pub mod avx2 {
 
         debug_assert!(len - i < 32);
 
-        do_tail(needle, p, len, i, q)
+        do_tail(p, len, i, q)
     }
 
     #[inline(never)]
@@ -715,7 +685,7 @@ pub mod avx2 {
 
         debug_assert!(len - i < 32);
 
-        do_tail(needle, p, len, i, q_x15)
+        do_tail(p, len, i, q_x15)
     }
 
     #[inline(always)]
@@ -780,7 +750,7 @@ pub mod avx2 {
 
         debug_assert!(len - i < 32);
 
-        do_tail(needle, p, len, i, q_x15)
+        do_tail(p, len, i, q_x15)
     }
 
     #[inline(always)]
@@ -814,7 +784,7 @@ pub mod avx2 {
         Some((offset + cttz_nonzero(bitmask) as isize) as usize)
     }
 
-    #[inline(always)]
+    /*#[inline(always)]
     unsafe fn do_tail(needle: u8, p: *const u8, len: isize,
                       i: isize, q: __m256i) -> Option<usize> {
         debug_assert!(len - i < 32);
@@ -825,12 +795,12 @@ pub mod avx2 {
             let q = _mm256_extracti128_si256(q, 0);
             memchr_avx2_lt32_(needle, p, len, i, q)
         }
-    }
+    }*/
 
     #[allow(unused)]
     #[inline(always)]
-    unsafe fn do_tail_(p: *const u8, len: isize,
-                       mut i: isize, q: __m256i) -> Option<usize> {
+    unsafe fn do_tail(p: *const u8, len: isize,
+                      mut i: isize, q: __m256i) -> Option<usize> {
 
         use std::intrinsics::{likely, unlikely};
 
@@ -940,6 +910,7 @@ pub mod avx2 {
         None
     }
 
+    #[allow(unused)]
     #[inline(always)]
     unsafe fn cmp_16(q: __m128i, p: *const u8, i: isize) -> Option<usize> {
         let x = _mm_loadu_si128(p.offset(i) as *const __m128i);
