@@ -574,6 +574,7 @@ pub mod avx2 {
         let mut i = 64;
         let len_minus = len - 32;
 
+        // TODO unroll?
         while i <= len_minus {
             if let Some(r) = cmp(q, p, i) {
                 return Some(r);
@@ -681,6 +682,9 @@ pub mod avx2 {
             debug_assert!(offset.is_some());
             return offset;
         }
+
+        // TODO try calling memchr_avx2 recursively to hit the
+        // jump table into the specialized functions
 
         let len_minus = len - 32;
         while i <= len_minus  {
