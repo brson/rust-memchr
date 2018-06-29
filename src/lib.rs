@@ -797,6 +797,7 @@ pub mod avx2 {
         }
     }*/
 
+    // TODO Try another version that only cares about crossing cache-line boundaries
     #[allow(unused)]
     #[inline(always)]
     unsafe fn do_tail(p: *const u8, len: isize,
