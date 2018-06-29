@@ -673,7 +673,7 @@ pub mod avx2 {
 
             // Seems to be slightly faster than vptest, though
             // it uses one more instruction
-            let sum = _mm256_movemask_epi8(sum_08_x12);
+            let sum = _mm256_movemask_epi8(sum_08_x13);
             if sum == 0 {
                 i += 288;
                 continue;
@@ -687,10 +687,10 @@ pub mod avx2 {
             // resolve.
 
             let offset = None
-                .or_else(|| check_match(i + 0, sum_01_x8, x0, x1, false))
-                .or_else(|| check_match(i + 64, sum_23_x9, x2, x3, false))
-                .or_else(|| check_match(i + 128, sum_45_x10, x4, x5, false))
-                .or_else(|| check_match(i + 192, sum_67_x11, x6, x7, false))
+                .or_else(|| check_match(i + 0, sum_01_x9, x0, x1, false))
+                .or_else(|| check_match(i + 64, sum_23_x10, x2, x3, false))
+                .or_else(|| check_match(i + 128, sum_45_x11, x4, x5, false))
+                .or_else(|| check_match(i + 192, sum_67_x12, x6, x7, false))
                 .or_else(|| {
                     let matches = _mm256_movemask_epi8(x8);
                     debug_assert!(matches != 0);
