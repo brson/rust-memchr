@@ -73,6 +73,15 @@ fn bench_data_16_overaligned_1_found_16() -> VecDeque<u8> {
     v
 }
 
+fn bench_data_16_aligned_found_9() -> Vec<u8> {
+    let mut v: Vec<u8> = aligned_buffer();
+    v.extend(iter::repeat(b'z').take(8));
+    v.extend(iter::repeat(b'a').take(1));
+    v.extend(iter::repeat(b'a').take(7));
+    assert_eq!(v.as_ptr() as usize & (64 - 1), 0);
+    v
+}
+
 fn bench_data_31_overaligned_31_found_31() -> VecDeque<u8> {
     let mut v: Vec<u8> = aligned_buffer();
     v.extend(iter::repeat(b'z').take(31 + 30).chain(iter::repeat(b'a').take(1)));
@@ -283,6 +292,18 @@ macro_rules! memchr_benches {
                 b.iter(|| {
                     for _ in 0..100 {
                         assert!(black_box($memchr(needle, &haystack) == Some(15)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            #[bench]
+            fn memchr_16_aligned_found_9(b: &mut test::Bencher) {
+                let haystack = bench_data_16_aligned_found_9();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(8)));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
