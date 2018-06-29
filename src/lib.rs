@@ -511,9 +511,12 @@ pub mod avx2 {
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
 
-        // TODO do 1 unconditional unaligned dword load
+        if *p.offset(0) == needle { return Some(0); }
+        if *p.offset(1) == needle { return Some(1); }
+        if *p.offset(2) == needle { return Some(2); }
+        if *p.offset(3) == needle { return Some(3); }
 
-        memchr_avx2_lt16_(needle, p, len, 0)
+        memchr_avx2_lt16_(needle, p, len, 0 + 4)
     }
 
     #[inline(always)]
@@ -649,24 +652,24 @@ pub mod avx2 {
             // TODO: check perf of max_epu for all these ors
             // LLVM actually optimizes these ors from 9 to 8 and eliminates the
             // setzero.
-            let sum_01_x8 = _mm256_or_si256(x0, x1);
-            let sum_23_x9 = _mm256_or_si256(x2, x3);
-            let sum_45_x10 = _mm256_or_si256(x4, x5);
-            let sum_67_x11 = _mm256_or_si256(x6, x7);
+            let sum_01_x9 = _mm256_or_si256(x0, x1);
+            let sum_23_x10 = _mm256_or_si256(x2, x3);
+            let sum_45_x11 = _mm256_or_si256(x4, x5);
+            let sum_67_x12 = _mm256_or_si256(x6, x7);
 
-            let sum_init_x12 = _mm256_setzero_si256();
-            let sum_01_x12 = _mm256_or_si256(sum_init_x12, sum_01_x8);
-            let sum_03_x12 = _mm256_or_si256(sum_01_x12, sum_23_x9);
-            let sum_05_x12 = _mm256_or_si256(sum_03_x12, sum_45_x10);
-            let sum_07_x12 = _mm256_or_si256(sum_05_x12, sum_67_x11);
-            let sum_08_x12 = _mm256_or_si256(sum_07_x12, x8);
+            let sum_init_x13 = _mm256_setzero_si256();
+            let sum_01_x13 = _mm256_or_si256(sum_init_x13, sum_01_x9);
+            let sum_03_x13 = _mm256_or_si256(sum_01_x13, sum_23_x10);
+            let sum_05_x13 = _mm256_or_si256(sum_03_x13, sum_45_x11);
+            let sum_07_x13 = _mm256_or_si256(sum_05_x13, sum_67_x12);
+            let sum_08_x13 = _mm256_or_si256(sum_07_x13, x8);
 
             // Just to make it clear we're done with these
-            drop(sum_init_x12);
-            drop(sum_01_x12);
-            drop(sum_03_x12);
-            drop(sum_05_x12);
-            drop(sum_07_x12);
+            drop(sum_init_x13);
+            drop(sum_01_x13);
+            drop(sum_03_x13);
+            drop(sum_05_x13);
+            drop(sum_07_x13);
 
             // Seems to be slightly faster than vptest, though
             // it uses one more instruction
