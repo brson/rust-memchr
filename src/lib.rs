@@ -870,6 +870,7 @@ pub mod avx2 {
         panic!()
     }
 
+    #[allow(unused)]
     #[inline(always)]
     fn black_box<T>(dummy: T) -> T {
         // we need to "use" the argument in some way LLVM can't
