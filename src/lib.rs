@@ -800,7 +800,7 @@ pub mod avx2 {
 
     #[inline(always)]
     unsafe fn do_tail(p: *const u8, len: isize,
-                      mut i: isize, q: __m256i) -> Option<usize> {
+                      i: isize, q: __m256i) -> Option<usize> {
         use std::intrinsics::{likely, unlikely};
 
         let rem = len - i;
@@ -836,7 +836,7 @@ pub mod avx2 {
 
     #[inline(always)]
     unsafe fn do_tail_16(p: *const u8, len: isize,
-                         mut i: isize, q: __m128i) -> Option<usize> {
+                         i: isize, q: __m128i) -> Option<usize> {
         use std::intrinsics::{likely, unlikely};
 
         let rem = len - i;
