@@ -526,7 +526,7 @@ pub mod avx2 {
         let len = haystack.len() as isize;
         let q = _mm_set1_epi8(needle as i8);
 
-        do_tail_16(p, len, 0, q)
+        do_tail_16(needle, p, len, 0, q)
     }
 
     #[target_feature(enable = "avx2")]
@@ -538,7 +538,7 @@ pub mod avx2 {
         let len = haystack.len() as isize;
         let q = _mm256_set1_epi8(needle as i8);
 
-        do_tail(p, len, 0, q)
+        do_tail(needle, p, len, 0, q)
     }
 
     #[target_feature(enable = "avx2")]
@@ -554,7 +554,7 @@ pub mod avx2 {
             return Some(r);
         }
 
-        do_tail(p, len, 32, q)
+        do_tail(needle, p, len, 32, q)
     }
 
     #[target_feature(enable = "avx2")]
@@ -586,7 +586,7 @@ pub mod avx2 {
 
         debug_assert!(len - i < 32);
 
-        do_tail(p, len, i, q)
+        do_tail(needle, p, len, i, q)
     }
 
     #[inline(never)]
@@ -699,7 +699,7 @@ pub mod avx2 {
 
         debug_assert!(len - i < 32);
 
-        do_tail(p, len, i, q_x15)
+        do_tail(needle, p, len, i, q_x15)
     }
 
     #[inline(always)]
@@ -764,7 +764,7 @@ pub mod avx2 {
 
         debug_assert!(len - i < 32);
 
-        do_tail(p, len, i, q_x15)
+        do_tail(needle, p, len, i, q_x15)
     }
 
     #[inline(always)]
@@ -799,8 +799,8 @@ pub mod avx2 {
     }
 
     #[inline(always)]
-    unsafe fn do_tail(p: *const u8, len: isize,
-                      i: isize, q: __m256i) -> Option<usize> {
+    unsafe fn do_tail(needle: u8, p: *const u8, len: isize,
+                      mut i: isize, q: __m256i) -> Option<usize> {
         use std::intrinsics::{likely, unlikely};
 
         let rem = len - i;
@@ -831,12 +831,18 @@ pub mod avx2 {
         }
 
         // At the end of a page - slow path
-        panic!()
+        // At the end of a page - slow path
+        while i < len {
+            if *p.offset(i) == needle { return Some(i as usize) }
+            i += 1;
+        }
+
+        None
     }
 
     #[inline(always)]
-    unsafe fn do_tail_16(p: *const u8, len: isize,
-                         i: isize, q: __m128i) -> Option<usize> {
+    unsafe fn do_tail_16(needle: u8, p: *const u8, len: isize,
+                         mut i: isize, q: __m128i) -> Option<usize> {
         use std::intrinsics::{likely, unlikely};
 
         let rem = len - i;
@@ -867,7 +873,12 @@ pub mod avx2 {
         }
 
         // At the end of a page - slow path
-        panic!()
+        while i < len {
+            if *p.offset(i) == needle { return Some(i as usize) }
+            i += 1;
+        }
+
+        None
     }
 
     #[allow(unused)]
@@ -880,7 +891,7 @@ pub mod avx2 {
     }
 
     // TODO Try another version that only cares about crossing cache-line boundaries
-    #[allow(unused)]
+    /*#[allow(unused)]
     #[inline(always)]
     unsafe fn do_tail_(p: *const u8, len: isize,
                       mut i: isize, q: __m256i) -> Option<usize> {
@@ -980,7 +991,7 @@ pub mod avx2 {
         debug_assert_eq!(i, len);
 
         return None;
-    }
+    }*/
 
     #[inline(always)]
     unsafe fn cmp(q: __m256i, p: *const u8, i: isize) -> Option<usize> {
