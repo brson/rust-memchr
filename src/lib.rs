@@ -510,9 +510,9 @@ pub mod avx2 {
 
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
-        let q = _mm256_set1_epi8(needle as i8);
+        let q = _mm_set1_epi8(needle as i8);
 
-        do_tail_(p, len, 0, q)
+        do_tail_16(p, len, 0, q)
     }
 
     #[target_feature(enable = "avx2")]
@@ -802,6 +802,42 @@ pub mod avx2 {
             let x = _mm256_loadu_si256(p.offset(i) as *const __m256i);
             let r = _mm256_cmpeq_epi8(x, q);
             let z = _mm256_movemask_epi8(r);
+            let garbage_mask = {
+                let ones = u32::max_value();
+                let mask = ones << rem;
+                let mask = !mask;
+                mask as i32
+            };
+            let z = z & garbage_mask;
+            if z != 0 {
+                return off(i, z);
+            }
+
+            return None;
+        }
+
+        // At the end of a page - slow path
+        panic!()
+    }
+
+    #[inline(always)]
+    unsafe fn do_tail_16(p: *const u8, len: isize,
+                         mut i: isize, q: __m128i) -> Option<usize> {
+        use std::intrinsics::{likely, unlikely};
+
+        let rem = len - i;
+        debug_assert!(rem < 16);
+
+        let page_alignment = 4096;
+        let page_mask = !(page_alignment - 1);
+        let current_p = p.offset(i) as usize;
+        let avx_read_end = current_p + 16;
+        let next_page = (current_p & page_mask) + page_alignment;
+
+        if avx_read_end <= next_page {
+            let x = _mm_loadu_si128(p.offset(i) as *const __m128i);
+            let r = _mm_cmpeq_epi8(x, q);
+            let z = _mm_movemask_epi8(r);
             let garbage_mask = {
                 let ones = u32::max_value();
                 let mask = ones << rem;
