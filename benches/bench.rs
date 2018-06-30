@@ -452,7 +452,7 @@ macro_rules! memchr_benches {
 
 memchr_benches! { libc, memchr::memchr }
 memchr_benches! { avx2, memchr::avx2::memchr }
-memchr_benches! { sse, memchr::sse::memchr }
+//memchr_benches! { sse, memchr::sse::memchr }
 
 #[bench]
 fn iterator_memrchr(b: &mut test::Bencher) {

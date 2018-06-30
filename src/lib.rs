@@ -1238,7 +1238,7 @@ pub mod avx2 {
     }
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+/*#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[allow(missing_docs)]
 pub mod sse {
     #[cfg(all(feature = "use_std", target_arch = "x86_64"))]
@@ -1640,7 +1640,7 @@ pub mod sse {
     pub fn memrchr(needle: u8, haystack: &[u8]) -> Option<usize> {
         ::fallback::memrchr(needle, haystack)
     }
-}
+}*/
 
 #[allow(dead_code)]
 //#[cfg(any(test, not(feature = "libc"), all(not(target_os = "linux"),
@@ -1928,7 +1928,7 @@ mod tests {
     memchr_tests! { native, ::memchr, ::memrchr }
     memchr_tests! { fallback, ::fallback::memchr, ::fallback::memrchr }
     memchr_tests! { avx2, ::avx2::memchr, ::avx2::memrchr }
-    memchr_tests! { sse, ::sse::memchr, ::sse::memrchr }
+    //memchr_tests! { sse, ::sse::memchr, ::sse::memrchr }
 
     #[test]
     fn memchr2_matches_one() {
