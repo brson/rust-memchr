@@ -428,15 +428,29 @@ pub mod avx2 {
     // find in tail after stride
     // find last in 5 bytes
     // find last in 7 bytes
+    // find 4th in 7 bytes
     // find last in 8 bytes
     // find first in 8 bytes
+    // find last in 8 bytes
     // find first in 16 bytes
+    // find last in 16 bytes
     // find first in 32 bytes
-    // find 4th in 7 bytes
+    // find last in 32 bytes
     // find first in 65 bytes
     // find last in 65 bytes
+    // find first in 64 bytes
+    // find last in 64 bytes
+    // find first in 127 bytes
+    // find last in 127 bytes
+    // find first in 128 bytes
+    // find last in 128 bytes
     // find first in 255 bytes
     // find last in 255 bytes
+
+    // TODO
+    // specialize for 16 bytes
+    // specialize for 32 bytes
+    // specialize for 64 bytes
 
     include!("memchr_avx2_call_table.rs");
 
