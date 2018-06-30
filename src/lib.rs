@@ -2,7 +2,7 @@
 This crate defines two functions, `memchr` and `memrchr`, which expose a safe
 interface to the corresponding functions in `libc`.
 */
-#![feature(core_intrinsics)]
+#![feature(core_intrinsics, asm)]
 #![deny(missing_docs)]
 #![allow(unused_imports)]
 #![doc(html_root_url = "https://docs.rs/memchr/2.0.0")]
@@ -512,7 +512,7 @@ pub mod avx2 {
         let len = haystack.len() as isize;
         let q = _mm256_set1_epi8(needle as i8);
 
-        do_tail(p, len, 0, q)
+        do_tail_(p, len, 0, q)
     }
 
     #[target_feature(enable = "avx2")]
@@ -784,23 +784,54 @@ pub mod avx2 {
         Some((offset + cttz_nonzero(bitmask) as isize) as usize)
     }
 
-    /*#[inline(always)]
-    unsafe fn do_tail(needle: u8, p: *const u8, len: isize,
-                      i: isize, q: __m256i) -> Option<usize> {
-        debug_assert!(len - i < 32);
+    #[inline(always)]
+    unsafe fn do_tail(p: *const u8, len: isize,
+                      mut i: isize, q: __m256i) -> Option<usize> {
+        use std::intrinsics::{likely, unlikely};
 
-        if len - i < 16 {
-            memchr_avx2_lt16_(needle, p, len, i)
-        } else {
-            let q = _mm256_extracti128_si256(q, 0);
-            memchr_avx2_lt32_(needle, p, len, i, q)
+        let rem = len - i;
+        debug_assert!(rem < 32);
+
+        let page_alignment = 4096;
+        let page_mask = !(page_alignment - 1);
+        let current_p = p.offset(i) as usize;
+        let avx_read_end = current_p + 32;
+        let next_page = (current_p & page_mask) + page_alignment;
+
+        if avx_read_end <= next_page {
+            let x = _mm256_loadu_si256(p.offset(i) as *const __m256i);
+            let r = _mm256_cmpeq_epi8(x, q);
+            let z = _mm256_movemask_epi8(r);
+            let garbage_mask = {
+                let ones = u32::max_value();
+                let mask = ones << rem;
+                let mask = !mask;
+                mask as i32
+            };
+            let z = z & garbage_mask;
+            if z != 0 {
+                return off(i, z);
+            }
+
+            return None;
         }
-    }*/
+
+        // At the end of a page - slow path
+        panic!()
+    }
+
+    #[inline(always)]
+    fn black_box<T>(dummy: T) -> T {
+        // we need to "use" the argument in some way LLVM can't
+        // introspect.
+        unsafe { asm!("" : : "r"(&dummy)) }
+        dummy
+    }
 
     // TODO Try another version that only cares about crossing cache-line boundaries
     #[allow(unused)]
     #[inline(always)]
-    unsafe fn do_tail(p: *const u8, len: isize,
+    unsafe fn do_tail_(p: *const u8, len: isize,
                       mut i: isize, q: __m256i) -> Option<usize> {
 
         use std::intrinsics::{likely, unlikely};
