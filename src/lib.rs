@@ -808,6 +808,8 @@ pub mod avx2 {
 
         let page_alignment = 4096;
         let page_mask = !(page_alignment - 1);
+        // TODO: This end-of-page comparison would be slightly more accurate
+        // if we used (i + rem - 1) here, but at the cost of more instructions
         let current_p = p.offset(i) as usize;
         let avx_read_end = current_p + 32;
         let next_page = (current_p & page_mask) + page_alignment;
