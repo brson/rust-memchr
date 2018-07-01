@@ -419,7 +419,7 @@ pub fn memchr3(
     slow(needle1, needle2, needle3, &haystack[i..]).map(|pos| i + pos)
 }
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+/*#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[allow(missing_docs)]
 pub mod avx2 {
     #[cfg(all(feature = "use_std", target_arch = "x86_64"))]
@@ -1042,7 +1042,7 @@ pub mod avx2 {
     pub fn memrchr(needle: u8, haystack: &[u8]) -> Option<usize> {
         ::fallback::memrchr(needle, haystack)
     }
-}
+}*/
 
 /*#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[allow(missing_docs)]
@@ -1733,7 +1733,7 @@ mod tests {
 
     memchr_tests! { native, ::memchr, ::memrchr }
     memchr_tests! { fallback, ::fallback::memchr, ::fallback::memrchr }
-    memchr_tests! { avx2, ::avx2::memchr, ::avx2::memrchr }
+    //memchr_tests! { avx2, ::avx2::memchr, ::avx2::memrchr }
     //memchr_tests! { sse, ::sse::memchr, ::sse::memrchr }
 
     #[test]
