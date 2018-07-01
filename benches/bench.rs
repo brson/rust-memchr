@@ -103,6 +103,96 @@ macro_rules! memchr_benches {
                 b.bytes = haystack.len() as u64 * 100;
             }
 
+            fn bench_data_4_found() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'z').take(3).chain(iter::repeat(b'a').take(1)));
+                v
+            }
+
+            #[bench]
+            fn memchr_4_found(b: &mut test::Bencher) {
+                let haystack = bench_data_4_found();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(3)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_5_found() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'z').take(4).chain(iter::repeat(b'a').take(1)));
+                v
+            }
+
+            #[bench]
+            fn memchr_5_found(b: &mut test::Bencher) {
+                let haystack = bench_data_5_found();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(4)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_7_found() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'z').take(6).chain(iter::repeat(b'a').take(1)));
+                v
+            }
+
+            #[bench]
+            fn memchr_7_found(b: &mut test::Bencher) {
+                let haystack = bench_data_7_found();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(6)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_8_found_first() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'a').take(1).chain(iter::repeat(b'z').take(7)));
+                v
+            }
+
+            #[bench]
+            fn memchr_8_found_first(b: &mut test::Bencher) {
+                let haystack = bench_data_8_found_first();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_8_found_last() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'z').take(7).chain(iter::repeat(b'a').take(1)));
+                v
+            }
+
+            #[bench]
+            fn memchr_8_found_last(b: &mut test::Bencher) {
+                let haystack = bench_data_8_found_last();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(7)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
             fn bench_data_15_aligned_notfound() -> Vec<u8> {
                 let mut v: Vec<u8> = aligned_buffer();
                 v.extend(iter::repeat(b'z').take(15));
@@ -162,6 +252,42 @@ macro_rules! memchr_benches {
                 b.iter(|| {
                     for _ in 0..100 {
                         assert!(black_box($memchr(needle, &haystack) == Some(14)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_16_found_first() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'a').take(1).chain(iter::repeat(b'z').take(15)));
+                v
+            }
+
+            #[bench]
+            fn memchr_16_found_first(b: &mut test::Bencher) {
+                let haystack = bench_data_16_found_first();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_16_found_last() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'z').take(15).chain(iter::repeat(b'a').take(1)));
+                v
+            }
+
+            #[bench]
+            fn memchr_16_found_last(b: &mut test::Bencher) {
+                let haystack = bench_data_16_found_last();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(15)));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -258,6 +384,42 @@ macro_rules! memchr_benches {
                 b.bytes = haystack.len() as u64 * 100;
             }
 
+            fn bench_data_17_found_first() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'a').take(1).chain(iter::repeat(b'z').take(16)));
+                v
+            }
+
+            #[bench]
+            fn memchr_17_found_first(b: &mut test::Bencher) {
+                let haystack = bench_data_17_found_first();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_17_found_last() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'z').take(16).chain(iter::repeat(b'a').take(1)));
+                v
+            }
+
+            #[bench]
+            fn memchr_17_found_last(b: &mut test::Bencher) {
+                let haystack = bench_data_17_found_last();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(16)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
             fn bench_data_31_aligned_found_30() -> Vec<u8> {
                 let mut v: Vec<u8> = aligned_buffer();
                 v.extend(iter::repeat(b'z').take(30).chain(iter::repeat(b'a').take(1)));
@@ -324,6 +486,204 @@ macro_rules! memchr_benches {
                 b.bytes = haystack.len() as u64 * 100;
             }
 
+            fn bench_data_32_found_first() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'a').take(1).chain(iter::repeat(b'z').take(31)));
+                v
+            }
+
+            #[bench]
+            fn memchr_32_found_first(b: &mut test::Bencher) {
+                let haystack = bench_data_32_found_first();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_32_found_last() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'z').take(31).chain(iter::repeat(b'a').take(1)));
+                v
+            }
+
+            #[bench]
+            fn memchr_32_found_last(b: &mut test::Bencher) {
+                let haystack = bench_data_32_found_last();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(31)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_33_found_first() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'a').take(1).chain(iter::repeat(b'z').take(32)));
+                v
+            }
+
+            #[bench]
+            fn memchr_33_found_first(b: &mut test::Bencher) {
+                let haystack = bench_data_33_found_first();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_33_found_last() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'z').take(32).chain(iter::repeat(b'a').take(1)));
+                v
+            }
+
+            #[bench]
+            fn memchr_33_found_last(b: &mut test::Bencher) {
+                let haystack = bench_data_33_found_last();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(32)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_63_aligned_notfound() -> Vec<u8> {
+                let mut v: Vec<u8> = aligned_buffer();
+                v.extend(iter::repeat(b'z').take(63));
+                v
+            }
+
+            #[bench]
+            fn memchr_63_aligned_notfound(b: &mut test::Bencher) {
+                let haystack = bench_data_63_aligned_notfound();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack).is_none()));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_64_found_first() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'a').take(1).chain(iter::repeat(b'z').take(63)));
+                v
+            }
+
+            #[bench]
+            fn memchr_64_found_first(b: &mut test::Bencher) {
+                let haystack = bench_data_64_found_first();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_64_found_last() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'z').take(63).chain(iter::repeat(b'a').take(1)));
+                v
+            }
+
+            #[bench]
+            fn memchr_64_found_last(b: &mut test::Bencher) {
+                let haystack = bench_data_64_found_last();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(63)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_65_found_first() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'a').take(1).chain(iter::repeat(b'z').take(64)));
+                v
+            }
+
+            #[bench]
+            fn memchr_65_found_first(b: &mut test::Bencher) {
+                let haystack = bench_data_65_found_first();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_65_found_last() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'z').take(64).chain(iter::repeat(b'a').take(1)));
+                v
+            }
+
+            #[bench]
+            fn memchr_65_found_last(b: &mut test::Bencher) {
+                let haystack = bench_data_65_found_last();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(64)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_127_found_first() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'a').take(1).chain(iter::repeat(b'z').take(126)));
+                v
+            }
+
+            #[bench]
+            fn memchr_127_found_first(b: &mut test::Bencher) {
+                let haystack = bench_data_127_found_first();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_127_found_last() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'z').take(126).chain(iter::repeat(b'a').take(1)));
+                v
+            }
+
+            #[bench]
+            fn memchr_127_found_last(b: &mut test::Bencher) {
+                let haystack = bench_data_127_found_last();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(126)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
             fn bench_data_128_found_first() -> Vec<u8> {
                 let mut v = aligned_buffer();
                 v.extend(iter::repeat(b'a').take(1).chain(iter::repeat(b'z').take(127)));
@@ -378,19 +738,163 @@ macro_rules! memchr_benches {
                 b.bytes = haystack.len() as u64 * 100;
             }
 
-            fn bench_data_63_aligned_notfound() -> Vec<u8> {
-                let mut v: Vec<u8> = aligned_buffer();
-                v.extend(iter::repeat(b'z').take(63));
+            fn bench_data_255_found_first() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'a').take(1).chain(iter::repeat(b'z').take(254)));
                 v
             }
 
             #[bench]
-            fn memchr_63_aligned_notfound(b: &mut test::Bencher) {
-                let haystack = bench_data_63_aligned_notfound();
+            fn memchr_255_found_first(b: &mut test::Bencher) {
+                let haystack = bench_data_255_found_first();
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack).is_none()));
+                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_255_found_last() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'z').take(254).chain(iter::repeat(b'a').take(1)));
+                v
+            }
+
+            #[bench]
+            fn memchr_255_found_last(b: &mut test::Bencher) {
+                let haystack = bench_data_255_found_last();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(254)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_256_found_first() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'a').take(1).chain(iter::repeat(b'z').take(255)));
+                v
+            }
+
+            #[bench]
+            fn memchr_256_found_first(b: &mut test::Bencher) {
+                let haystack = bench_data_256_found_first();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_256_found_last() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'z').take(255).chain(iter::repeat(b'a').take(1)));
+                v
+            }
+
+            #[bench]
+            fn memchr_256_found_last(b: &mut test::Bencher) {
+                let haystack = bench_data_256_found_last();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(255)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_287_found_first() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'a').take(1).chain(iter::repeat(b'z').take(286)));
+                v
+            }
+
+            #[bench]
+            fn memchr_287_found_first(b: &mut test::Bencher) {
+                let haystack = bench_data_287_found_first();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_287_found_last() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'z').take(286).chain(iter::repeat(b'a').take(1)));
+                v
+            }
+
+            #[bench]
+            fn memchr_287_found_last(b: &mut test::Bencher) {
+                let haystack = bench_data_287_found_last();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(286)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_288_found_first() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'a').take(1).chain(iter::repeat(b'z').take(287)));
+                v
+            }
+
+            #[bench]
+            fn memchr_288_found_first(b: &mut test::Bencher) {
+                let haystack = bench_data_288_found_first();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_288_found_last() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'z').take(287).chain(iter::repeat(b'a').take(1)));
+                v
+            }
+
+            #[bench]
+            fn memchr_288_found_last(b: &mut test::Bencher) {
+                let haystack = bench_data_288_found_last();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(287)));
+                    }
+                });
+                b.bytes = haystack.len() as u64 * 100;
+            }
+
+            fn bench_data_320_found_last() -> Vec<u8> {
+                let mut v = aligned_buffer();
+                v.extend(iter::repeat(b'z').take(319).chain(iter::repeat(b'a').take(1)));
+                v
+            }
+
+            #[bench]
+            fn memchr_320_found_last(b: &mut test::Bencher) {
+                let haystack = bench_data_320_found_last();
+                let needle = b'a';
+                b.iter(|| {
+                    for _ in 0..100 {
+                        assert!(black_box($memchr(needle, &haystack) == Some(319)));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -403,7 +907,7 @@ macro_rules! memchr_benches {
                 let haystack = bench_data_big();
                 let needle = b'a';
                 b.iter(|| {
-                    assert!($memchr(needle, &haystack).is_none());
+                    assert!(black_box($memchr(needle, &haystack).is_none()));
                 });
                 b.bytes = haystack.len() as u64;
             }
@@ -415,9 +919,120 @@ macro_rules! memchr_benches {
                 let haystack = bench_data_realbig();
                 let needle = b'a';
                 b.iter(|| {
-                    assert!($memchr(needle, &haystack).is_none());
+                    assert!(black_box($memchr(needle, &haystack).is_none()));
                 });
                 b.bytes = haystack.len() as u64;
+            }
+
+            #[bench]
+            fn memchr_icache_thrasher(b: &mut test::Bencher) {
+                let needle = b'a';
+                let haystack_empty = bench_data_empty();
+                let haystack_1_found = bench_data_1_found();
+                let haystack_2_found = bench_data_2_found();
+                let haystack_3_found = bench_data_3_found();
+                let haystack_4_found = bench_data_4_found();
+                let haystack_5_found = bench_data_5_found();
+                let haystack_7_found = bench_data_7_found();
+                let haystack_8_found_first = bench_data_8_found_first();
+                let haystack_8_found_last = bench_data_8_found_last();
+                let haystack_15_aligned_notfound = bench_data_15_aligned_notfound();
+                let haystack_15_overaligned_1_notfound = bench_data_15_overaligned_1_notfound();
+                let haystack_15_overaligned_1_notfound = haystack_15_overaligned_1_notfound.as_slices().0;
+                let haystack_15_overaligned_1_found_14 = bench_data_15_overaligned_1_found_14();
+                let haystack_15_overaligned_1_found_14 = haystack_15_overaligned_1_found_14.as_slices().0;
+                let haystack_16_found_first = bench_data_16_found_first();
+                let haystack_16_found_last = bench_data_16_found_last();
+                let haystack_16_aligned_found_8 = bench_data_16_aligned_found_8();
+                let haystack_16_overaligned_1_notfound = bench_data_16_overaligned_1_notfound();
+                let haystack_16_overaligned_1_notfound = haystack_16_overaligned_1_notfound.as_slices().0;
+                let haystack_16_overaligned_1_found_15 = bench_data_16_overaligned_1_found_15();
+                let haystack_16_overaligned_1_found_15 = haystack_16_overaligned_1_found_15.as_slices().0;
+                let haystack_16_overaligned_8_found_15 = bench_data_16_overaligned_8_found_15();
+                let haystack_16_overaligned_8_found_15 = haystack_16_overaligned_8_found_15.as_slices().0;
+                let haystack_17_found_first = bench_data_17_found_first();
+                let haystack_17_found_last = bench_data_17_found_last();
+                let haystack_31_aligned_found_30 = bench_data_31_aligned_found_30();
+                let haystack_31_overaligned_1_found_30 = bench_data_31_overaligned_1_found_30();
+                let haystack_31_overaligned_1_found_30 = haystack_31_overaligned_1_found_30.as_slices().0;
+                let haystack_31_overaligned_31_found_30 = bench_data_31_overaligned_31_found_30();
+                let haystack_31_overaligned_31_found_30 = haystack_31_overaligned_31_found_30.as_slices().0;
+                let haystack_32_found_first = bench_data_32_found_first();
+                let haystack_32_found_last = bench_data_32_found_last();
+                let haystack_33_found_first = bench_data_33_found_first();
+                let haystack_33_found_last = bench_data_33_found_last();
+                let haystack_63_aligned_notfound = bench_data_63_aligned_notfound();
+                let haystack_64_found_first = bench_data_64_found_first();
+                let haystack_64_found_last = bench_data_64_found_last();
+                let haystack_65_found_first = bench_data_65_found_first();
+                let haystack_65_found_last = bench_data_65_found_last();
+                let haystack_127_found_first = bench_data_127_found_first();
+                let haystack_127_found_last = bench_data_127_found_last();
+                let haystack_128_found_first = bench_data_128_found_first();
+                let haystack_128_found_64 = bench_data_128_found_64();
+                let haystack_128_found_last = bench_data_128_found_last();
+                let haystack_255_found_first = bench_data_255_found_first();
+                let haystack_255_found_last = bench_data_255_found_last();
+                let haystack_256_found_first = bench_data_256_found_first();
+                let haystack_256_found_last = bench_data_256_found_last();
+                let haystack_287_found_first = bench_data_287_found_first();
+                let haystack_287_found_last = bench_data_287_found_last();
+                let haystack_288_found_first = bench_data_288_found_first();
+                let haystack_288_found_last = bench_data_288_found_last();
+                let haystack_320_found_last = bench_data_320_found_last();
+                let haystack_big = bench_data_big();
+                let haystack_realbig = bench_data_realbig();
+
+                b.iter(|| {
+                    assert!(black_box($memchr(needle, &haystack_empty).is_none()));
+                    assert!(black_box($memchr(needle, &haystack_1_found) == Some(0)));
+                    assert!(black_box($memchr(needle, &haystack_2_found) == Some(1)));
+                    assert!(black_box($memchr(needle, &haystack_3_found) == Some(2)));
+                    assert!(black_box($memchr(needle, &haystack_4_found) == Some(3)));
+                    assert!(black_box($memchr(needle, &haystack_5_found) == Some(4)));
+                    assert!(black_box($memchr(needle, &haystack_7_found) == Some(6)));
+                    assert!(black_box($memchr(needle, &haystack_8_found_first) == Some(0)));
+                    assert!(black_box($memchr(needle, &haystack_8_found_last) == Some(7)));
+                    assert!(black_box($memchr(needle, &haystack_15_aligned_notfound).is_none()));
+                    assert!(black_box($memchr(needle, &haystack_15_overaligned_1_notfound).is_none()));
+                    assert!(black_box($memchr(needle, &haystack_15_overaligned_1_found_14) == Some(14)));
+                    assert!(black_box($memchr(needle, &haystack_16_found_first) == Some(0)));
+                    assert!(black_box($memchr(needle, &haystack_16_found_last) == Some(15)));
+                    assert!(black_box($memchr(needle, &haystack_16_aligned_found_8) == Some(8)));
+                    assert!(black_box($memchr(needle, &haystack_16_overaligned_1_notfound).is_none()));
+                    assert!(black_box($memchr(needle, &haystack_16_overaligned_1_found_15) == Some(15)));
+                    assert!(black_box($memchr(needle, &haystack_16_overaligned_8_found_15) == Some(15)));
+                    assert!(black_box($memchr(needle, &haystack_17_found_first) == Some(0)));
+                    assert!(black_box($memchr(needle, &haystack_17_found_last) == Some(16)));
+                    assert!(black_box($memchr(needle, &haystack_31_aligned_found_30) == Some(30)));
+                    assert!(black_box($memchr(needle, &haystack_31_overaligned_1_found_30) == Some(30)));
+                    assert!(black_box($memchr(needle, &haystack_31_overaligned_31_found_30) == Some(30)));
+                    assert!(black_box($memchr(needle, &haystack_32_found_first) == Some(0)));
+                    assert!(black_box($memchr(needle, &haystack_32_found_last) == Some(31)));
+                    assert!(black_box($memchr(needle, &haystack_33_found_first) == Some(0)));
+                    assert!(black_box($memchr(needle, &haystack_33_found_last) == Some(32)));
+                    assert!(black_box($memchr(needle, &haystack_63_aligned_notfound).is_none()));
+                    assert!(black_box($memchr(needle, &haystack_64_found_first) == Some(0)));
+                    assert!(black_box($memchr(needle, &haystack_64_found_last) == Some(63)));
+                    assert!(black_box($memchr(needle, &haystack_65_found_first) == Some(0)));
+                    assert!(black_box($memchr(needle, &haystack_65_found_last) == Some(64)));
+                    assert!(black_box($memchr(needle, &haystack_127_found_first) == Some(0)));
+                    assert!(black_box($memchr(needle, &haystack_127_found_last) == Some(126)));
+                    assert!(black_box($memchr(needle, &haystack_128_found_first) == Some(0)));
+                    assert!(black_box($memchr(needle, &haystack_128_found_64) == Some(64)));
+                    assert!(black_box($memchr(needle, &haystack_128_found_last) == Some(127)));
+                    assert!(black_box($memchr(needle, &haystack_255_found_first) == Some(0)));
+                    assert!(black_box($memchr(needle, &haystack_255_found_last) == Some(254)));
+                    assert!(black_box($memchr(needle, &haystack_256_found_first) == Some(0)));
+                    assert!(black_box($memchr(needle, &haystack_256_found_last) == Some(255)));
+                    assert!(black_box($memchr(needle, &haystack_287_found_first) == Some(0)));
+                    assert!(black_box($memchr(needle, &haystack_287_found_last) == Some(286)));
+                    assert!(black_box($memchr(needle, &haystack_288_found_first) == Some(0)));
+                    assert!(black_box($memchr(needle, &haystack_288_found_last) == Some(287)));
+                    assert!(black_box($memchr(needle, &haystack_320_found_last) == Some(319)));
+                    assert!(black_box($memchr(needle, &haystack_big).is_none()));
+                    assert!(black_box($memchr(needle, &haystack_realbig).is_none()));
+                });
             }
         }
     }
