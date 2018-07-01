@@ -431,6 +431,20 @@ mod intr {
     }
 }
 
+#[allow(unused)]
+mod intr_ {
+    #[inline(always)]
+    pub unsafe fn likely(v: bool) -> bool { v }
+
+    #[inline(always)]
+    pub unsafe fn unlikely(v: bool) -> bool { v }
+
+    #[inline(always)]
+    pub unsafe fn cttz_nonzero(v: u32) -> u32 {
+        v.trailing_zeros()
+    }
+}
+
 use intr::*;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
