@@ -413,6 +413,21 @@ pub fn memchr3(
     slow(needle1, needle2, needle3, &haystack[i..]).map(|pos| i + pos)
 }
 
+#[inline(always)]
+unsafe fn likely(t: bool) -> bool {
+    std::intrinsics::likely(t)
+}
+
+#[inline(always)]
+unsafe fn unlikely(t: bool) -> bool {
+    std::intrinsics::unlikely(t)
+}
+
+#[inline(always)]
+unsafe fn cttz_nonzero<T>(t: T) -> T {
+    std::intrinsics::cttz_nonzero(t)
+}
+
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[allow(missing_docs)]
 pub mod avx2 {
@@ -424,6 +439,8 @@ pub mod avx2 {
     use std::arch::x86::*;
     #[cfg(all(not(feature = "use_std"), target_arch = "x86"))]
     use core::arch::x86::*;
+
+    use super::{likely, unlikely, cttz_nonzero};
 
     // TODO tests to add
     // large qc tests
@@ -453,8 +470,6 @@ pub mod avx2 {
     // non-inline avx functions are inlined into this one. TODO: verify this.
     #[inline(never)]
     unsafe fn memchr_avx2(needle: u8, haystack: &[u8]) -> Option<usize> {
-        use std::intrinsics::{likely};
-
         // FIXME: assembly for this is reloading dil into edi unnecessarily...
         let len = haystack.len();
 
@@ -603,8 +618,6 @@ pub mod avx2 {
     unsafe fn memchr_avx2_ge256(needle: u8, haystack: &[u8]) -> Option<usize> {
         debug_assert!(haystack.len() >= 256);
 
-        use std::intrinsics::{likely, unlikely};
-
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
         debug_assert!(haystack.len() <= isize::max_value() as usize);
@@ -708,8 +721,6 @@ pub mod avx2 {
         debug_assert!(haystack.len() >= 256);
         debug_assert!(haystack.len() < 288);
 
-        use std::intrinsics::{likely, unlikely};
-
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
         debug_assert!(haystack.len() <= isize::max_value() as usize);
@@ -795,7 +806,6 @@ pub mod avx2 {
 
     #[inline(always)]
     unsafe fn off(offset: isize, bitmask: i32) -> Option<usize> {
-        use std::intrinsics::cttz_nonzero;
         Some((offset + cttz_nonzero(bitmask) as isize) as usize)
     }
 
@@ -808,8 +818,6 @@ pub mod avx2 {
     /*#[inline(always)]
     unsafe fn do_tail_clever(needle: u8, p: *const u8, len: isize,
                              mut i: isize, q: __m256i) -> Option<usize> {
-        use std::intrinsics::{likely, unlikely};
-
         let rem = len - i;
         debug_assert!(rem < 32);
 
@@ -863,8 +871,6 @@ pub mod avx2 {
     /*#[inline(always)]
     unsafe fn do_tail_16_clever(needle: u8, p: *const u8, len: isize,
                                 mut i: isize, q: __m128i) -> Option<usize> {
-        use std::intrinsics::{likely, unlikely};
-
         let rem = len - i;
         debug_assert!(rem < 16);
 
@@ -912,8 +918,6 @@ pub mod avx2 {
     #[inline(always)]
     unsafe fn do_tail_(p: *const u8, len: isize,
                       mut i: isize, q: __m256i) -> Option<usize> {
-
-        use std::intrinsics::{likely, unlikely};
 
         // TODO: fall back to sse when appropriate
 
@@ -1050,6 +1054,8 @@ pub mod sse {
     #[cfg(all(not(feature = "use_std"), target_arch = "x86"))]
     use core::arch::x86::*;
 
+    use super::{likely, unlikely, cttz_nonzero};
+
     #[inline(always)]
     pub fn memchr(needle: u8, haystack: &[u8]) -> Option<usize> {
         unsafe { memchr_sse(needle, haystack) }
@@ -1057,8 +1063,6 @@ pub mod sse {
 
     #[target_feature(enable = "sse3")]
     pub unsafe fn memchr_sse(needle: u8, haystack: &[u8]) -> Option<usize> {
-        use std::intrinsics::{likely, unlikely, cttz_nonzero};
-
         if haystack.is_empty() { return None }
         if unlikely(haystack[0] == needle) {
             return Some(0);
@@ -1727,7 +1731,7 @@ mod tests {
 
     memchr_tests! { native, ::memchr, ::memrchr }
     memchr_tests! { fallback, ::fallback::memchr, ::fallback::memrchr }
-    //memchr_tests! { avx2, ::avx2::memchr, ::avx2::memrchr }
+    memchr_tests! { avx2, ::avx2::memchr, ::avx2::memrchr }
     //memchr_tests! { sse, ::sse::memchr, ::sse::memrchr }
 
     #[test]

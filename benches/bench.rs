@@ -1043,7 +1043,7 @@ macro_rules! memchr_benches {
 }
 
 memchr_benches! { libc, memchr::memchr }
-//memchr_benches! { avx2, memchr::avx2::memchr }
+memchr_benches! { avx2, memchr::avx2::memchr }
 //memchr_benches! { sse, memchr::sse::memchr }
 
 use std::iter;
