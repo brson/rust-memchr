@@ -6,8 +6,10 @@ print("const AVX2FNS: [MemchrFn; 256] = [")
 for i in range(0, 256):
     if i <= 3:
         j = str(i)
-    elif i <= 16:
-        j = "le16"
+    elif i < 16:
+        j = "lt16"
+    elif i == 16:
+        j = "eq16"
     elif i < 32:
         j = "lt32"
     elif i < 64:

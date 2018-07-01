@@ -434,8 +434,12 @@ pub mod avx2 {
     // find last in 8 bytes
     // find first in 16 bytes
     // find last in 16 bytes
+    // find first in 17 bytes
+    // find last in 17 bytes
     // find first in 32 bytes
     // find last in 32 bytes
+    // find first in 33 bytes
+    // find last in 33 bytes
     // find first in 65 bytes
     // find last in 65 bytes
     // find first in 64 bytes
@@ -518,15 +522,33 @@ pub mod avx2 {
     }
 
     #[target_feature(enable = "avx2")]
-    unsafe fn memchr_avx2_le16(needle: u8, haystack: &[u8]) -> Option<usize> {
+    unsafe fn memchr_avx2_lt16(needle: u8, haystack: &[u8]) -> Option<usize> {
         debug_assert!(haystack.len() >= 4);
-        debug_assert!(haystack.len() <= 16);
+        debug_assert!(haystack.len() < 16);
 
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
         let q = _mm_set1_epi8(needle as i8);
 
         do_tail_16(needle, p, len, 0, q)
+    }
+
+    #[target_feature(enable = "avx2")]
+    unsafe fn memchr_avx2_eq16(needle: u8, haystack: &[u8]) -> Option<usize> {
+        debug_assert!(haystack.len() >= 4);
+        debug_assert!(haystack.len() <= 16);
+
+        let p: *const u8 = haystack.as_ptr();
+        let q = _mm_set1_epi8(needle as i8);
+
+        let x = _mm_loadu_si128(p.offset(0) as *const __m128i);
+        let r = _mm_cmpeq_epi8(x, q);
+        let z = _mm_movemask_epi8(r);
+        if z != 0 {
+            return off(0, z);
+        }
+
+        None
     }
 
     #[target_feature(enable = "avx2")]
