@@ -814,7 +814,7 @@ pub mod avx2 {
         let avx_read_end = current_p + 32;
         let next_page = (current_p & page_mask) + page_alignment;
 
-        if avx_read_end <= next_page {
+        if likely(avx_read_end <= next_page) {
             let x = _mm256_loadu_si256(p.offset(i) as *const __m256i);
             let r = _mm256_cmpeq_epi8(x, q);
             let z = _mm256_movemask_epi8(r);
@@ -855,7 +855,7 @@ pub mod avx2 {
         let avx_read_end = current_p + 16;
         let next_page = (current_p & page_mask) + page_alignment;
 
-        if avx_read_end <= next_page {
+        if likely(avx_read_end <= next_page) {
             let x = _mm_loadu_si128(p.offset(i) as *const __m128i);
             let r = _mm_cmpeq_epi8(x, q);
             let z = _mm_movemask_epi8(r);
