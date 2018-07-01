@@ -9,14 +9,8 @@ interface to the corresponding functions in `libc`.
 
 #![cfg_attr(not(feature = "use_std"), no_std)]
 
-#![feature(alloc_system, global_allocator, allocator_api)]
-
-extern crate alloc_system;
-
-use alloc_system::System;
-
 #[global_allocator]
-static A: System = System;
+static A: std::alloc::System = std::alloc::System;
 
 #[cfg(all(test, not(feature = "use_std")))]
 #[macro_use]
@@ -419,7 +413,7 @@ pub fn memchr3(
     slow(needle1, needle2, needle3, &haystack[i..]).map(|pos| i + pos)
 }
 
-/*#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[allow(missing_docs)]
 pub mod avx2 {
     #[cfg(all(feature = "use_std", target_arch = "x86_64"))]
@@ -1042,7 +1036,7 @@ pub mod avx2 {
     pub fn memrchr(needle: u8, haystack: &[u8]) -> Option<usize> {
         ::fallback::memrchr(needle, haystack)
     }
-}*/
+}
 
 /*#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[allow(missing_docs)]
