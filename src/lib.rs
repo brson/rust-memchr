@@ -2,7 +2,7 @@
 This crate defines two functions, `memchr` and `memrchr`, which expose a safe
 interface to the corresponding functions in `libc`.
 */
-#![feature(core_intrinsics, asm)]
+#![feature(core_intrinsics)]
 #![deny(missing_docs)]
 #![allow(unused_imports)]
 #![doc(html_root_url = "https://docs.rs/memchr/2.0.0")]
@@ -432,6 +432,11 @@ pub mod avx2 {
     // tune the lt256 case
     // try using 128bit vecs for lt32 case
     // try a core algorithm that uses shifting to compose a 256-bit mask
+    // can anything useful be done with permute + bmi2 pext?
+    //   - https://stackoverflow.com/questions/36932240/avx2-what-is-the-most-efficient-way-to-pack-left-based-on-a-mask
+    // extract intrinsics into wrappers than can be disabled
+    // check perf of max_epu vs or
+    // ymm14 is unused?!
 
     #[inline(always)]
     pub fn memchr(needle: u8, haystack: &[u8]) -> Option<usize> {
@@ -608,11 +613,6 @@ pub mod avx2 {
         let mut i = 0;
         let q_x15 = _mm256_set1_epi8(needle as i8);
 
-        // TODO
-        // investigate permute + bmi2 pext
-        // https://stackoverflow.com/questions/36932240/avx2-what-is-the-most-efficient-way-to-pack-left-based-on-a-mask
-        // TODO: Add tests for finding in haystack more than 256 bytes
-
         let len_minus = len - 288;
 
         while i <= len_minus {
@@ -633,9 +633,7 @@ pub mod avx2 {
             let x7 = loadcmp(224);
             let x8 = loadcmp(256);
 
-            // TODO: check perf of max_epu for all these ors
-            // LLVM actually optimizes these ors from 9 to 8 and eliminates the
-            // setzero.
+            // LLVM will optimize this sequence to fewer instructions than written
             let sum_01_x9 = _mm256_or_si256(x0, x1);
             let sum_23_x10 = _mm256_or_si256(x2, x3);
             let sum_45_x11 = _mm256_or_si256(x4, x5);
@@ -648,7 +646,7 @@ pub mod avx2 {
             let sum_07_x13 = _mm256_or_si256(sum_05_x13, sum_67_x12);
             let sum_08_x13 = _mm256_or_si256(sum_07_x13, x8);
 
-            // Just to make it clear we're done with these
+            // Just making it it clear we're done with these
             drop(sum_init_x13);
             drop(sum_01_x13);
             drop(sum_03_x13);
@@ -800,7 +798,13 @@ pub mod avx2 {
 
     #[inline(always)]
     unsafe fn do_tail(needle: u8, p: *const u8, len: isize,
-                      mut i: isize, q: __m256i) -> Option<usize> {
+                      i: isize, q: __m256i) -> Option<usize> {
+        do_tail_simple(needle, p, len, i, q)
+    }
+
+    /*#[inline(always)]
+    unsafe fn do_tail_clever(needle: u8, p: *const u8, len: isize,
+                             mut i: isize, q: __m256i) -> Option<usize> {
         use std::intrinsics::{likely, unlikely};
 
         let rem = len - i;
@@ -833,6 +837,12 @@ pub mod avx2 {
         }
 
         // TODO At the end of a page - slow path
+        do_tail_simple(needle, p, len, i, ;)
+    }*/
+
+    #[inline(always)]
+    unsafe fn do_tail_simple(needle: u8, p: *const u8, len: isize,
+                             mut i: isize, _q: __m256i) -> Option<usize> {
         while i < len {
             if *p.offset(i) == needle { return Some(i as usize) }
             i += 1;
@@ -843,7 +853,13 @@ pub mod avx2 {
 
     #[inline(always)]
     unsafe fn do_tail_16(needle: u8, p: *const u8, len: isize,
-                         mut i: isize, q: __m128i) -> Option<usize> {
+                         i: isize, q: __m128i) -> Option<usize> {
+        do_tail_16_simple(needle, p, len, i, q)
+    }
+
+    /*#[inline(always)]
+    unsafe fn do_tail_16_clever(needle: u8, p: *const u8, len: isize,
+                                mut i: isize, q: __m128i) -> Option<usize> {
         use std::intrinsics::{likely, unlikely};
 
         let rem = len - i;
@@ -874,21 +890,18 @@ pub mod avx2 {
         }
 
         // TODO At the end of a page - slow path
+        do_tail_16_simple(needle, p, len, i, q)
+    }*/
+
+    #[inline(always)]
+    unsafe fn do_tail_16_simple(needle: u8, p: *const u8, len: isize,
+                                mut i: isize, _q: __m128i) -> Option<usize> {
         while i < len {
             if *p.offset(i) == needle { return Some(i as usize) }
             i += 1;
         }
 
         None
-    }
-
-    #[allow(unused)]
-    #[inline(always)]
-    fn black_box<T>(dummy: T) -> T {
-        // we need to "use" the argument in some way LLVM can't
-        // introspect.
-        unsafe { asm!("" : : "r"(&dummy)) }
-        dummy
     }
 
     // TODO Try another version that only cares about crossing cache-line boundaries
