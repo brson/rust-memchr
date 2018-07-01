@@ -23,7 +23,16 @@ macro_rules! memchr_benches {
                 let p = p as *mut u8;
                 let cap = cap / ::std::mem::size_of::<u64>();
                 let v = unsafe { Vec::from_raw_parts(p, len, cap) };
+                assert_aligned(&v);
                 v
+            }
+
+            fn assert_overaligned(v: &[u8], align: usize) {
+                assert_eq!(v.as_ptr() as usize & (64 - 1), align);
+            }
+
+            fn assert_aligned(v: &[u8]) {
+                assert_overaligned(&v, 0)
             }
 
             fn bench_data_empty() -> Vec<u8> { vec![] }
@@ -43,7 +52,6 @@ macro_rules! memchr_benches {
             fn bench_data_1_found() -> Vec<u8> {
                 let mut v = aligned_buffer();
                 v.extend(iter::repeat(b'a').take(1));
-                assert_eq!(v.as_ptr() as usize & (64 - 1), 0);
                 v
             }
 
@@ -62,7 +70,6 @@ macro_rules! memchr_benches {
             fn bench_data_2_found() -> Vec<u8> {
                 let mut v = aligned_buffer();
                 v.extend(iter::repeat(b'z').take(1).chain(iter::repeat(b'a').take(1)));
-                assert_eq!(v.as_ptr() as usize & (64 - 1), 0);
                 v
             }
 
@@ -81,7 +88,6 @@ macro_rules! memchr_benches {
             fn bench_data_3_found() -> Vec<u8> {
                 let mut v = aligned_buffer();
                 v.extend(iter::repeat(b'z').take(2).chain(iter::repeat(b'a').take(1)));
-                assert_eq!(v.as_ptr() as usize & (64 - 1), 0);
                 v
             }
 
@@ -100,7 +106,6 @@ macro_rules! memchr_benches {
             fn bench_data_15_aligned_notfound() -> Vec<u8> {
                 let mut v: Vec<u8> = aligned_buffer();
                 v.extend(iter::repeat(b'z').take(15));
-                assert_eq!(v.as_ptr() as usize & (64 - 1), 0);
                 v
             }
 
@@ -121,7 +126,7 @@ macro_rules! memchr_benches {
                 v.extend(iter::repeat(b'z').take(16));
                 let mut v = VecDeque::from(v);
                 v.pop_front();
-                assert_eq!(v.as_slices().0.as_ptr() as usize & (64 - 1), 1);
+                assert_overaligned(v.as_slices().0, 1);
                 v
             }
 
@@ -144,7 +149,7 @@ macro_rules! memchr_benches {
                 v.extend(iter::repeat(b'z').take(15).chain(iter::repeat(b'a').take(1)));
                 let mut v = VecDeque::from(v);
                 v.pop_front();
-                assert_eq!(v.as_slices().0.as_ptr() as usize & (64 - 1), 1);
+                assert_overaligned(&v.as_slices().0, 1);
                 v
             }
 
@@ -167,7 +172,6 @@ macro_rules! memchr_benches {
                 v.extend(iter::repeat(b'z').take(8));
                 v.extend(iter::repeat(b'a').take(1));
                 v.extend(iter::repeat(b'a').take(7));
-                assert_eq!(v.as_ptr() as usize & (64 - 1), 0);
                 v
             }
 
@@ -188,7 +192,7 @@ macro_rules! memchr_benches {
                 v.extend(iter::repeat(b'z').take(17));
                 let mut v = VecDeque::from(v);
                 v.pop_front();
-                assert_eq!(v.as_slices().0.as_ptr() as usize & (64 - 1), 1);
+                assert_overaligned(&v.as_slices().0, 1);
                 v
             }
 
@@ -211,7 +215,7 @@ macro_rules! memchr_benches {
                 v.extend(iter::repeat(b'z').take(16).chain(iter::repeat(b'a').take(1)));
                 let mut v = VecDeque::from(v);
                 v.pop_front();
-                assert_eq!(v.as_slices().0.as_ptr() as usize & (64 - 1), 1);
+                assert_overaligned(&v.as_slices().0, 1);
                 v
             }
 
@@ -233,11 +237,10 @@ macro_rules! memchr_benches {
                 let mut v: Vec<u8> = aligned_buffer();
                 v.extend(iter::repeat(b'z').take(8 + 15).chain(iter::repeat(b'a').take(1)));
                 let mut v = VecDeque::from(v);
-                assert_eq!(v.as_slices().0.as_ptr() as usize & (64 - 1), 0);
                 for _ in 0..8 {
                     v.pop_front();
                 }
-                assert_eq!(v.as_slices().0.as_ptr() as usize & (64 - 1), 8);
+                assert_overaligned(&v.as_slices().0, 8);
                 v
             }
 
@@ -258,7 +261,6 @@ macro_rules! memchr_benches {
             fn bench_data_31_aligned_found_30() -> Vec<u8> {
                 let mut v: Vec<u8> = aligned_buffer();
                 v.extend(iter::repeat(b'z').take(30).chain(iter::repeat(b'a').take(1)));
-                assert_eq!(v.as_slice().as_ptr() as usize & (64 - 1), 0);
                 v
             }
 
@@ -278,9 +280,8 @@ macro_rules! memchr_benches {
                 let mut v: Vec<u8> = aligned_buffer();
                 v.extend(iter::repeat(b'z').take(1 + 30).chain(iter::repeat(b'a').take(1)));
                 let mut v = VecDeque::from(v);
-                assert_eq!(v.as_slices().0.as_ptr() as usize & (64 - 1), 0);
                 v.pop_front();
-                assert_eq!(v.as_slices().0.as_ptr() as usize & (64 - 1), 1);
+                assert_overaligned(&v.as_slices().0, 1);
                 v
             }
 
@@ -302,11 +303,10 @@ macro_rules! memchr_benches {
                 let mut v: Vec<u8> = aligned_buffer();
                 v.extend(iter::repeat(b'z').take(31 + 30).chain(iter::repeat(b'a').take(1)));
                 let mut v = VecDeque::from(v);
-                assert_eq!(v.as_slices().0.as_ptr() as usize & (64 - 1), 0);
                 for _ in 0..31 {
                     v.pop_front();
                 }
-                assert_eq!(v.as_slices().0.as_ptr() as usize & (64 - 1), 31);
+                assert_overaligned(&v.as_slices().0, 31);
                 v
             }
 
@@ -327,7 +327,6 @@ macro_rules! memchr_benches {
             fn bench_data_128_found_first() -> Vec<u8> {
                 let mut v = aligned_buffer();
                 v.extend(iter::repeat(b'a').take(1).chain(iter::repeat(b'z').take(127)));
-                assert_eq!(v.as_ptr() as usize & (64 - 1), 0);
                 v
             }
 
@@ -346,7 +345,6 @@ macro_rules! memchr_benches {
             fn bench_data_128_found_64() -> Vec<u8> {
                 let mut v = aligned_buffer();
                 v.extend(iter::repeat(b'z').take(63).chain(iter::repeat(b'a').take(1)).chain(iter::repeat(b'z').take(1)));
-                assert_eq!(v.as_ptr() as usize & (64 - 1), 0);
                 v
             }
 
@@ -365,7 +363,6 @@ macro_rules! memchr_benches {
             fn bench_data_128_found_last() -> Vec<u8> {
                 let mut v = aligned_buffer();
                 v.extend(iter::repeat(b'z').take(127).chain(iter::repeat(b'a').take(1)));
-                assert_eq!(v.as_ptr() as usize & (64 - 1), 0);
                 v
             }
 
@@ -384,7 +381,6 @@ macro_rules! memchr_benches {
             fn bench_data_63_aligned_notfound() -> Vec<u8> {
                 let mut v: Vec<u8> = aligned_buffer();
                 v.extend(iter::repeat(b'z').take(63));
-                assert_eq!(v.as_ptr() as usize & (64 - 1), 0);
                 v
             }
 
