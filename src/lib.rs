@@ -413,20 +413,25 @@ pub fn memchr3(
     slow(needle1, needle2, needle3, &haystack[i..]).map(|pos| i + pos)
 }
 
-#[inline(always)]
-unsafe fn likely(t: bool) -> bool {
-    std::intrinsics::likely(t)
+#[allow(unused)]
+mod intr {
+    #[inline(always)]
+    pub unsafe fn likely(t: bool) -> bool {
+        ::std::intrinsics::likely(t)
+    }
+
+    #[inline(always)]
+    pub unsafe fn unlikely(t: bool) -> bool {
+        ::std::intrinsics::unlikely(t)
+    }
+
+    #[inline(always)]
+    pub unsafe fn cttz_nonzero<T>(t: T) -> T {
+        ::std::intrinsics::cttz_nonzero(t)
+    }
 }
 
-#[inline(always)]
-unsafe fn unlikely(t: bool) -> bool {
-    std::intrinsics::unlikely(t)
-}
-
-#[inline(always)]
-unsafe fn cttz_nonzero<T>(t: T) -> T {
-    std::intrinsics::cttz_nonzero(t)
-}
+use intr::*;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[allow(missing_docs)]
