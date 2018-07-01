@@ -9,6 +9,15 @@ interface to the corresponding functions in `libc`.
 
 #![cfg_attr(not(feature = "use_std"), no_std)]
 
+#![feature(alloc_system, global_allocator, allocator_api)]
+
+extern crate alloc_system;
+
+use alloc_system::System;
+
+#[global_allocator]
+static A: System = System;
+
 #[cfg(all(test, not(feature = "use_std")))]
 #[macro_use]
 extern crate std;
