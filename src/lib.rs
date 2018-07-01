@@ -450,6 +450,7 @@ pub mod avx2 {
     // find last in 128 bytes
     // find first in 255 bytes
     // find last in 255 bytes
+    // icache-thrashing test
 
     // TODO
     // specialize for 16 bytes
