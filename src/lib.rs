@@ -426,16 +426,19 @@ pub mod avx2 {
     // large qc tests
 
     // TODO
-    // specialize for 16 bytes
     // specialize for 32 bytes
     // specialize for 64 bytes
-
-    include!("memchr_avx2_call_table.rs");
+    // try replacing movemasks with vptest/testnz
+    // tune the lt256 case
+    // try using 128bit vecs for lt32 case
+    // try a core algorithm that uses shifting to compose a 256-bit mask
 
     #[inline(always)]
     pub fn memchr(needle: u8, haystack: &[u8]) -> Option<usize> {
         unsafe { memchr_avx2(needle, haystack) }
     }
+
+    include!("memchr_avx2_call_table.rs");
 
     // NB: We don't want to inline this because then the optimizer won't be able
     // to turn the tail call into a jump table. Effectively, the other,
@@ -446,8 +449,11 @@ pub mod avx2 {
 
         // FIXME: assembly for this is reloading dil into edi unnecessarily...
         let len = haystack.len();
-        // FIXME: Do this jump unconditionally and then jump at the end of
-        // each function to the > 256 case.
+
+        // Instead of checking for len < 256 here we could truncate len and jump
+        // unconditionally, then at the end of every specialization check for
+        // len >= 255. I recall thinking that would not be a better solution,
+        // but don't recall why.
         if likely(len < 256) {
             AVX2FNS[len as u8 as usize](needle, haystack)
         } else {
@@ -572,7 +578,6 @@ pub mod avx2 {
         let mut i = 64;
         let len_minus = len - 32;
 
-        // TODO unroll?
         while i <= len_minus {
             if let Some(r) = cmp(q, p, i) {
                 return Some(r);
@@ -603,8 +608,7 @@ pub mod avx2 {
         let mut i = 0;
         let q_x15 = _mm256_set1_epi8(needle as i8);
 
-        // TODO consider stream_load
-        // consider testc_si256 / testnzc_si256 / testz
+        // TODO
         // investigate permute + bmi2 pext
         // https://stackoverflow.com/questions/36932240/avx2-what-is-the-most-efficient-way-to-pack-left-based-on-a-mask
         // TODO: Add tests for finding in haystack more than 256 bytes
@@ -771,8 +775,8 @@ pub mod avx2 {
         debug_assert!(!contains_needle || _mm256_movemask_epi8(sumv) != 0);
 
         // This movemask is the thing LLVM is generating many extra
-        // instructions for. Using vptest instead doesn't do any
-        // better.
+        // instructions for. Using vptest instead doesn't generate
+        // any better code.
         // NB: This movemask will be optimized away when contains_needle
         // is true.
         let matches = _mm256_movemask_epi8(sumv);
