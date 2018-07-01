@@ -830,7 +830,7 @@ pub mod avx2 {
             return None;
         }
 
-        // At the end of a page - slow path
+        // TODO At the end of a page - slow path
         while i < len {
             if *p.offset(i) == needle { return Some(i as usize) }
             i += 1;
@@ -871,7 +871,7 @@ pub mod avx2 {
             return None;
         }
 
-        // At the end of a page - slow path
+        // TODO At the end of a page - slow path
         while i < len {
             if *p.offset(i) == needle { return Some(i as usize) }
             i += 1;
