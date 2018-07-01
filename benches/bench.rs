@@ -704,7 +704,7 @@ macro_rules! memchr_benches {
 
             fn bench_data_128_found_64() -> Vec<u8> {
                 let mut v = aligned_buffer();
-                v.extend(iter::repeat(b'z').take(63).chain(iter::repeat(b'a').take(1)).chain(iter::repeat(b'z').take(1)));
+                v.extend(iter::repeat(b'z').take(64).chain(iter::repeat(b'a').take(1)).chain(iter::repeat(b'z').take(63)));
                 v
             }
 
