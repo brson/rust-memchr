@@ -28,7 +28,10 @@ macro_rules! memchr_benches {
             }
 
             fn assert_overaligned(v: &[u8], align: usize) {
-                assert_eq!(v.as_ptr() as usize & (64 - 1), align);
+                // TODO: seems like jemalloc will give us 64-byte aligned buffers
+                // but libc malloc gives us 16-byte aligned buffers
+                let alignment = 16;
+                assert_eq!(v.as_ptr() as usize & (alignment - 1), align);
             }
 
             fn assert_aligned(v: &[u8]) {
