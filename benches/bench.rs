@@ -31,6 +31,7 @@ macro_rules! memchr_benches {
                 // TODO: seems like jemalloc will give us 64-byte aligned buffers
                 // but libc malloc gives us 16-byte aligned buffers
                 let alignment = 16;
+                let align = align % alignment;
                 assert_eq!(v.as_ptr() as usize & (alignment - 1), align);
             }
 
