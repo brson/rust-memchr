@@ -1059,6 +1059,7 @@ fn iterator_memchr(b: &mut test::Bencher) {
 
 extern crate core;
 
+#[ignore]
 #[bench]
 fn core_memchr(b: &mut test::Bencher) {
     use core::slice::memchr;
@@ -1070,6 +1071,7 @@ fn core_memchr(b: &mut test::Bencher) {
     b.bytes = haystack.len() as u64;
 }
 
+#[ignore]
 #[bench]
 fn iterator_memrchr(b: &mut test::Bencher) {
     let haystack = bench_data();
@@ -1080,6 +1082,7 @@ fn iterator_memrchr(b: &mut test::Bencher) {
     b.bytes = haystack.len() as u64;
 }
 
+#[ignore]
 #[bench]
 fn optimized_memrchr(b: &mut test::Bencher) {
     let haystack = bench_data();
