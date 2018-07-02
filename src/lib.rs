@@ -831,12 +831,12 @@ pub mod avx2 {
     #[inline(always)]
     unsafe fn do_tail(needle: u8, p: *const u8, len: isize,
                       i: isize, q: __m256i) -> Option<usize> {
-        do_tail_simple(needle, p, len, i, q)
+        do_tail_clever(needle, p, len, i, q)
     }
 
-    /*#[inline(always)]
+    #[inline(always)]
     unsafe fn do_tail_clever(needle: u8, p: *const u8, len: isize,
-                             mut i: isize, q: __m256i) -> Option<usize> {
+                             i: isize, q: __m256i) -> Option<usize> {
         let rem = len - i;
         debug_assert!(rem < 32);
 
@@ -867,8 +867,8 @@ pub mod avx2 {
         }
 
         // TODO At the end of a page - slow path
-        do_tail_simple(needle, p, len, i, ;)
-    }*/
+        do_tail_simple(needle, p, len, i, q)
+    }
 
     #[inline(always)]
     unsafe fn do_tail_simple(needle: u8, p: *const u8, len: isize,
