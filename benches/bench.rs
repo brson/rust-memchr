@@ -1,13 +1,13 @@
 #![feature(test)]
 #![feature(slice_internals)]
 
+extern crate core;
 extern crate memchr;
 extern crate test;
 
 macro_rules! memchr_benches {
     ($mod_name:ident, $memchr:path) => {
         mod $mod_name {
-            use ::memchr;
             use ::test;
             use std::iter;
             use test::black_box;
@@ -1042,9 +1042,10 @@ macro_rules! memchr_benches {
     }
 }
 
-memchr_benches! { libc, memchr::memchr }
-memchr_benches! { avx2, memchr::avx2::memchr }
-//memchr_benches! { sse, memchr::sse::memchr }
+memchr_benches! { core_, ::core::slice::memchr::memchr }
+memchr_benches! { libc, ::memchr::memchr }
+memchr_benches! { avx2, ::memchr::avx2::memchr }
+//memchr_benches! { sse, ::memchr::sse::memchr }
 
 use std::iter;
 
@@ -1057,20 +1058,6 @@ fn iterator_memchr(b: &mut test::Bencher) {
     let needle = b'a';
     b.iter(|| {
         assert!(haystack.iter().position(|&b| b == needle).is_none());
-    });
-    b.bytes = haystack.len() as u64;
-}
-
-extern crate core;
-
-#[ignore]
-#[bench]
-fn core_memchr(b: &mut test::Bencher) {
-    use core::slice::memchr;
-    let haystack = bench_data();
-    let needle = b'a';
-    b.iter(|| {
-        assert!(memchr::memchr(needle, &haystack).is_none());
     });
     b.bytes = haystack.len() as u64;
 }
