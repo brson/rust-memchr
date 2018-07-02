@@ -476,6 +476,8 @@ pub mod avx2 {
     // extract intrinsics into wrappers than can be disabled
     // check perf of max_epu vs or
     // ymm14 is unused?!
+    // compare with libcore
+    // write a naive simd version - compare with libcore
 
     #[inline(always)]
     pub fn memchr(needle: u8, haystack: &[u8]) -> Option<usize> {
@@ -884,12 +886,12 @@ pub mod avx2 {
     #[inline(always)]
     unsafe fn do_tail_16(needle: u8, p: *const u8, len: isize,
                          i: isize, q: __m128i) -> Option<usize> {
-        do_tail_16_simple(needle, p, len, i, q)
+        do_tail_16_clever(needle, p, len, i, q)
     }
 
-    /*#[inline(always)]
+    #[inline(always)]
     unsafe fn do_tail_16_clever(needle: u8, p: *const u8, len: isize,
-                                mut i: isize, q: __m128i) -> Option<usize> {
+                                i: isize, q: __m128i) -> Option<usize> {
         let rem = len - i;
         debug_assert!(rem < 16);
 
@@ -919,7 +921,7 @@ pub mod avx2 {
 
         // TODO At the end of a page - slow path
         do_tail_16_simple(needle, p, len, i, q)
-    }*/
+    }
 
     #[inline(always)]
     unsafe fn do_tail_16_simple(needle: u8, p: *const u8, len: isize,
