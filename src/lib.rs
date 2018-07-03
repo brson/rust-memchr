@@ -565,14 +565,7 @@ pub mod avx2 {
         let p: *const u8 = haystack.as_ptr();
         let q = _mm_set1_epi8(needle as i8);
 
-        let x = _mm_loadu_si128(p.offset(0) as *const __m128i);
-        let r = _mm_cmpeq_epi8(x, q);
-        let z = _mm_movemask_epi8(r);
-        if z != 0 {
-            return off(0, z);
-        }
-
-        None
+        cmp_16(q, p, 0)
     }
 
     #[target_feature(enable = "avx2")]
@@ -582,9 +575,14 @@ pub mod avx2 {
 
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
-        let q = _mm256_set1_epi8(needle as i8);
+        let q = _mm_set1_epi8(needle as i8);
 
-        do_tail(needle, p, len, 0, q)
+        // TODO: Is it better to do one 32-bit read or or 2 16-bit?
+        if let Some(r) = cmp_16(q, p, 0) {
+            return Some(r);
+        }
+
+        do_tail_16(needle, p, len, 16, q)
     }
 
     #[target_feature(enable = "avx2")]
