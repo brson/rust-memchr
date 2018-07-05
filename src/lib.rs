@@ -834,6 +834,8 @@ pub mod avx2 {
         do_tail_clever(needle, p, len, i, q)
     }
 
+    // TODO: Deal with UB here
+    // https://github.com/rust-rfcs/unsafe-code-guidelines/issues/2
     #[inline(always)]
     unsafe fn do_tail_clever(needle: u8, p: *const u8, len: isize,
                              i: isize, q: __m256i) -> Option<usize> {
