@@ -846,6 +846,7 @@ pub mod avx2 {
         let page_mask = !(page_alignment - 1);
         // TODO: This end-of-page comparison would be slightly more accurate
         // if we used (i + rem - 1) here, but at the cost of more instructions
+        // TODO: Is this true^?
         let current_p = p.offset(i) as usize;
         let avx_read_end = current_p + 32;
         let next_page = (current_p & page_mask) + page_alignment;
@@ -868,7 +869,6 @@ pub mod avx2 {
             return None;
         }
 
-        // TODO At the end of a page - slow path
         do_tail_simple(needle, p, len, i, q)
     }
 
