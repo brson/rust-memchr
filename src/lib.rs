@@ -499,7 +499,7 @@ pub mod avx2 {
         // len >= 255. I recall thinking that would not be a better solution,
         // but don't recall why.
         if likely(len < 256) {
-            AVX2FNS[len as u8 as usize](needle, haystack)
+            MEMCHR_AVX2FNS[len as u8 as usize](needle, haystack)
         } else {
             memchr_avx2_ge256(needle, haystack)
         }
@@ -1058,9 +1058,58 @@ pub mod avx2 {
         None
     }
 
-    pub fn memrchr(needle: u8, haystack: &[u8]) -> Option<usize> {
+    /*pub fn memrchr(needle: u8, haystack: &[u8]) -> Option<usize> {
         ::fallback::memrchr(needle, haystack)
+    }*/
+
+    #[inline(always)]
+    pub fn memrchr(needle: u8, haystack: &[u8]) -> Option<usize> {
+        unsafe { memrchr_avx2(needle, haystack) }
     }
+
+    #[inline(never)]
+    unsafe fn memrchr_avx2(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let len = haystack.len();
+
+        // Instead of checking for len < 256 here we could truncate len and jump
+        // unconditionally, then at the end of every specialization check for
+        // len >= 255. I recall thinking that would not be a better solution,
+        // but don't recall why.
+        if likely(len < 256) {
+            MEMRCHR_AVX2FNS[len as u8 as usize](needle, haystack)
+        } else {
+            memrchr_avx2_full(needle, haystack)
+        }
+    }
+
+    #[inline(always)]
+    unsafe fn memrchr_avx2_full(needle: u8, haystack: &[u8]) -> Option<usize> {
+        let p: *const u8 = haystack.as_ptr();
+        let len = haystack.len() as isize;
+        let mut i = len - 1;
+        let q = _mm256_set1_epi8(needle as i8);
+
+        while i >= 0 {
+            if *p.offset(i) == needle {
+                return Some(i as usize);
+            }
+            i -= 1;
+        }
+
+        return None;
+    }
+
+    #[inline(always)]
+    unsafe fn rcmp(q: __m256i, p: *const u8, i: isize) -> Option<usize> {
+        let x = _mm256_loadu_si256(p.offset(i) as *const __m256i);
+        let r = _mm256_cmpeq_epi8(x, q);
+        let z = _mm256_movemask_epi8(r);
+        if z != 0 {
+            return off(i, z);
+        }
+        None
+    }
+
 }
 
 /*#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
