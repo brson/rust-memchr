@@ -641,14 +641,24 @@ pub mod avx2 {
     #[target_feature(enable = "avx2")]
     unsafe fn memchr_avx2_ge256(needle: u8, haystack: &[u8]) -> Option<usize> {
         debug_assert!(haystack.len() >= 256);
+        // FIXME: Why must this be true?
+        debug_assert!(haystack.len() <= isize::max_value() as usize);
+
+        if unlikely(haystack.len() < 288) {
+            return memchr_avx2_256(needle, haystack);
+        } else {
+            return memchr_avx2_288(needle, haystack);
+        }
+    }
+
+    #[inline(never)]
+    #[target_feature(enable = "avx2")]
+    unsafe fn memchr_avx2_288(needle: u8, haystack: &[u8]) -> Option<usize> {
+        debug_assert!(haystack.len() >= 256);
 
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
         debug_assert!(haystack.len() <= isize::max_value() as usize);
-
-        if unlikely(len < 288) {
-            return memchr_avx2_lt288(needle, haystack);
-        }
 
         let mut i = 0;
         let q_x15 = _mm256_set1_epi8(needle as i8);
@@ -734,9 +744,9 @@ pub mod avx2 {
     }
 
     #[inline(always)]
-    unsafe fn memchr_avx2_lt288(needle: u8, haystack: &[u8]) -> Option<usize> {
+    unsafe fn memchr_avx2_256(needle: u8, haystack: &[u8]) -> Option<usize> {
         debug_assert!(haystack.len() >= 256);
-        debug_assert!(haystack.len() < 288);
+        //debug_assert!(haystack.len() < 288);
 
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
@@ -1084,7 +1094,7 @@ pub mod avx2 {
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
         let mut i = len - 1;
-        let q = _mm256_set1_epi8(needle as i8);
+        let _q = _mm256_set1_epi8(needle as i8);
 
         while i >= 0 {
             if *p.offset(i) == needle {
@@ -1097,7 +1107,7 @@ pub mod avx2 {
     }
 
     #[inline(always)]
-    unsafe fn rcmp(q: __m256i, p: *const u8, i: isize) -> Option<usize> {
+    unsafe fn _rcmp(q: __m256i, p: *const u8, i: isize) -> Option<usize> {
         let x = _mm256_loadu_si256(p.offset(i) as *const __m256i);
         let r = _mm256_cmpeq_epi8(x, q);
         let z = _mm256_movemask_epi8(r);
