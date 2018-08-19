@@ -447,6 +447,11 @@ mod intr_ {
 
 use intr::*;
 
+
+// TODO: Note that some avx2 instructions impose a cpu
+// state transition penalty of some kind, but that
+// maybe these don't? (float vs int?)
+
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[allow(missing_docs)]
 pub mod avx2 {
@@ -696,13 +701,6 @@ pub mod avx2 {
                 continue;
             }
 
-            // NB: The assembly code for resolving the match is expected to
-            // be straightforword (looking just much as the intrinsics
-            // read), but LLVM is spewing some AVX vomit that I don't
-            // understand. For long searches that doesn't matter much, but
-            // the overhead matters for early matches. Would be good to
-            // resolve.
-
             let offset = None
                 .or_else(|| check_match(i + 0, sum_01_x9, x0, x1, false))
                 .or_else(|| check_match(i + 64, sum_23_x10, x2, x3, false))
@@ -804,6 +802,13 @@ pub mod avx2 {
                           contains_needle: bool) -> Option<usize> {
 
         debug_assert!(!contains_needle || _mm256_movemask_epi8(sumv) != 0);
+
+        // NB: The assembly code for resolving the match is expected to
+        // be straightforword (looking just much as the intrinsics
+        // read), but LLVM is spewing some AVX vomit that I don't
+        // understand. For long searches that doesn't matter much, but
+        // the overhead matters for early matches. Would be good to
+        // resolve.
 
         // This movemask is the thing LLVM is generating many extra
         // instructions for. Using vptest instead doesn't generate
@@ -1058,10 +1063,6 @@ pub mod avx2 {
         None
     }
 
-    /*pub fn memrchr(needle: u8, haystack: &[u8]) -> Option<usize> {
-        ::fallback::memrchr(needle, haystack)
-    }*/
-
     #[inline(always)]
     pub fn memrchr(needle: u8, haystack: &[u8]) -> Option<usize> {
         unsafe { memrchr_avx2(needle, haystack) }
@@ -1071,10 +1072,6 @@ pub mod avx2 {
     unsafe fn memrchr_avx2(needle: u8, haystack: &[u8]) -> Option<usize> {
         let len = haystack.len();
 
-        // Instead of checking for len < 256 here we could truncate len and jump
-        // unconditionally, then at the end of every specialization check for
-        // len >= 255. I recall thinking that would not be a better solution,
-        // but don't recall why.
         if likely(len < 256) {
             MEMRCHR_AVX2FNS[len as u8 as usize](needle, haystack)
         } else {
