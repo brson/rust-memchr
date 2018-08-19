@@ -423,19 +423,24 @@ mod intr {
 
 #[allow(unused)]
 mod intr_real {
+    #[cfg(feature = "use_std")]
+    use std::intrinsics;
+    #[cfg(not(feature = "use_std"))]
+    use core::intrinsics;
+
     #[inline(always)]
     pub unsafe fn likely(t: bool) -> bool {
-        ::std::intrinsics::likely(t)
+        intrinsics::likely(t)
     }
 
     #[inline(always)]
     pub unsafe fn unlikely(t: bool) -> bool {
-        ::std::intrinsics::unlikely(t)
+        intrinsics::unlikely(t)
     }
 
     #[inline(always)]
     pub unsafe fn cttz_nonzero<T>(t: T) -> T {
-        ::std::intrinsics::cttz_nonzero(t)
+        intrinsics::cttz_nonzero(t)
     }
 }
 
@@ -945,6 +950,8 @@ pub mod avx2 {
     #[inline(always)]
     unsafe fn do_tail(needle: u8, p: *const u8, len: isize,
                       i: isize, q: __m256i) -> Option<usize> {
+        let rem = len - i;
+        debug_assert!(rem < 32);
         if cfg!(feature = "tail_page_ub") {
             do_tail_clever(needle, p, len, i, q)
         } else {
@@ -1004,6 +1011,8 @@ pub mod avx2 {
     #[inline(always)]
     unsafe fn do_tail_16(needle: u8, p: *const u8, len: isize,
                          i: isize, q: __m128i) -> Option<usize> {
+        let rem = len - i;
+        debug_assert!(rem < 16);
         if cfg!(feature = "tail_page_ub") {
             do_tail_16_clever(needle, p, len, i, q)
         } else {
