@@ -415,6 +415,14 @@ pub fn memchr3(
 
 #[allow(unused)]
 mod intr {
+    #[cfg(feature = "use_unstable_intrinsics")]
+    pub use super::intr_real::*;
+    #[cfg(not(feature = "use_unstable_intrinsics"))]
+    pub use super::intr_fill::*;
+}
+
+#[allow(unused)]
+mod intr_real {
     #[inline(always)]
     pub unsafe fn likely(t: bool) -> bool {
         ::std::intrinsics::likely(t)
@@ -432,7 +440,7 @@ mod intr {
 }
 
 #[allow(unused)]
-mod intr_ {
+mod intr_fill {
     #[inline(always)]
     pub unsafe fn likely(v: bool) -> bool { v }
 
@@ -644,10 +652,14 @@ pub mod avx2 {
         // FIXME: Why must this be true?
         debug_assert!(haystack.len() <= isize::max_value() as usize);
 
-        if unlikely(haystack.len() < 288) {
-            return memchr_avx2_256(needle, haystack);
+        if cfg!(feature = "avx2_288_opt") {
+            if likely(haystack.len() >= 288) {
+                return memchr_avx2_288(needle, haystack);
+            } else {
+                return memchr_avx2_256(needle, haystack);
+            }
         } else {
-            return memchr_avx2_288(needle, haystack);
+            return memchr_avx2_256(needle, haystack);
         }
     }
 
@@ -823,8 +835,8 @@ pub mod avx2 {
         // This movemask is the thing LLVM is generating many extra
         // instructions for. Using vptest instead doesn't generate
         // any better code.
-        // NB: This movemask will be optimized away when contains_needle
-        // is true.
+        // NB: This movemask is expected to be optimized away when
+        // contains_needle is true.
         let matches = _mm256_movemask_epi8(sumv);
         if contains_needle || matches != 0 {
             let matches_0 = _mm256_movemask_epi8(v0);
@@ -846,7 +858,11 @@ pub mod avx2 {
     #[inline(always)]
     unsafe fn do_tail(needle: u8, p: *const u8, len: isize,
                       i: isize, q: __m256i) -> Option<usize> {
-        do_tail_clever(needle, p, len, i, q)
+        if cfg!(feature = "tail_page_ub") {
+            do_tail_clever(needle, p, len, i, q)
+        } else {
+            do_tail_simple(needle, p, len, i, q)
+        }
     }
 
     // TODO: Deal with UB here
@@ -901,7 +917,11 @@ pub mod avx2 {
     #[inline(always)]
     unsafe fn do_tail_16(needle: u8, p: *const u8, len: isize,
                          i: isize, q: __m128i) -> Option<usize> {
-        do_tail_16_clever(needle, p, len, i, q)
+        if cfg!(feature = "tail_page_ub") {
+            do_tail_16_clever(needle, p, len, i, q)
+        } else {
+            do_tail_16_simple(needle, p, len, i, q)
+        }
     }
 
     #[inline(always)]
