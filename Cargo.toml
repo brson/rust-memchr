@@ -19,7 +19,7 @@ name = "memchr"
 bench = false
 
 [features]
-default = ["use_std", "libc", "use_unstable_intrinsics"]
+default = ["use_std", "libc"]
 use_std = ["libc", "libc/use_std"]
 tail_page_ub = []
 avx2_288_opt = []

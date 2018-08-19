@@ -2,7 +2,7 @@
 This crate defines two functions, `memchr` and `memrchr`, which expose a safe
 interface to the corresponding functions in `libc`.
 */
-#![feature(core_intrinsics)]
+#![cfg_attr(feature = "use_unstable_intrinsics", feature(core_intrinsics))]
 #![deny(missing_docs)]
 #![allow(unused_imports)]
 #![doc(html_root_url = "https://docs.rs/memchr/2.0.0")]
@@ -421,6 +421,7 @@ mod intr {
     pub use super::intr_fill::*;
 }
 
+#[cfg(feature = "use_unstable_intrinsics")]
 #[allow(unused)]
 mod intr_real {
     #[cfg(feature = "use_std")]
@@ -438,12 +439,14 @@ mod intr_real {
         intrinsics::unlikely(t)
     }
 
+    // TODO: is cttz_nonzero well-defined for signed types?
     #[inline(always)]
-    pub unsafe fn cttz_nonzero<T>(t: T) -> T {
+    pub unsafe fn cttz_nonzero(t: i32) -> i32 {
         intrinsics::cttz_nonzero(t)
     }
 }
 
+#[cfg(not(feature = "use_unstable_intrinsics"))]
 #[allow(unused)]
 mod intr_fill {
     #[inline(always)]
@@ -453,8 +456,8 @@ mod intr_fill {
     pub unsafe fn unlikely(v: bool) -> bool { v }
 
     #[inline(always)]
-    pub unsafe fn cttz_nonzero(v: u32) -> u32 {
-        v.trailing_zeros()
+    pub unsafe fn cttz_nonzero(v: i32) -> i32 {
+        (v as u32).trailing_zeros() as i32
     }
 }
 
@@ -1191,48 +1194,8 @@ pub mod avx2 {
 
     #[inline(always)]
     pub fn memrchr(needle: u8, haystack: &[u8]) -> Option<usize> {
-        unsafe { memrchr_avx2(needle, haystack) }
+        ::fallback::memrchr(needle, haystack)
     }
-
-    #[inline(never)]
-    unsafe fn memrchr_avx2(needle: u8, haystack: &[u8]) -> Option<usize> {
-        let len = haystack.len();
-
-        if likely(len < 256) {
-            MEMRCHR_AVX2FNS[len as u8 as usize](needle, haystack)
-        } else {
-            memrchr_avx2_full(needle, haystack)
-        }
-    }
-
-    #[inline(always)]
-    unsafe fn memrchr_avx2_full(needle: u8, haystack: &[u8]) -> Option<usize> {
-        let p: *const u8 = haystack.as_ptr();
-        let len = haystack.len() as isize;
-        let mut i = len - 1;
-        let _q = _mm256_set1_epi8(needle as i8);
-
-        while i >= 0 {
-            if *p.offset(i) == needle {
-                return Some(i as usize);
-            }
-            i -= 1;
-        }
-
-        return None;
-    }
-
-    #[inline(always)]
-    unsafe fn _rcmp(q: __m256i, p: *const u8, i: isize) -> Option<usize> {
-        let x = _mm256_loadu_si256(p.offset(i) as *const __m256i);
-        let r = _mm256_cmpeq_epi8(x, q);
-        let z = _mm256_movemask_epi8(r);
-        if z != 0 {
-            return off(i, z);
-        }
-        None
-    }
-
 }
 
 /*#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
