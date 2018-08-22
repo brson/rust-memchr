@@ -690,10 +690,49 @@ pub mod avx2 {
         let len_minus = len - 288;
 
         while i <= len_minus {
-            if let Some(r) = check_block(p, i, q_x15) {
+            if let Some(r) = check_block(p, i, q_x15, false) {
                 return Some(r);
             }
             i = i + 256;
+        }
+
+        // TODO try calling memchr_avx2 recursively to hit the
+        // jump table into the specialized functions
+
+        let len_minus = len - 32;
+        while i <= len_minus  {
+            if let Some(r) = cmp(q_x15, p, i) {
+                return Some(r);
+            }
+
+            i += 32;
+        }
+
+        debug_assert!(len - i < 32);
+
+        do_tail(needle, p, len, i, q_x15)
+    }
+
+    #[inline(never)]
+    #[target_feature(enable = "avx2")]
+    unsafe fn memchr_avx2_288(needle: u8, haystack: &[u8]) -> Option<usize> {
+        debug_assert!(haystack.len() >= 256);
+
+        let p: *const u8 = haystack.as_ptr();
+        let len = haystack.len() as isize;
+        debug_assert!(haystack.len() <= isize::max_value() as usize);
+
+        let mut i = 0;
+        let q_x15 = _mm256_set1_epi8(needle as i8);
+
+        let len_minus = len - 288;
+
+        while i <= len_minus {
+            if let Some(r) = check_block(p, i, q_x15, true) {
+                return Some(r);
+            }
+
+            i += 288;
         }
 
         // TODO try calling memchr_avx2 recursively to hit the
@@ -726,7 +765,7 @@ pub mod avx2 {
         let mut i = 0;
         let q_x15 = _mm256_set1_epi8(needle as i8);
 
-        if let Some(r) = check_block(p, i, q_x15) {
+        if let Some(r) = check_block(p, i, q_x15, false) {
             return Some(r);
         }
 
@@ -738,7 +777,7 @@ pub mod avx2 {
     }
 
     #[inline(always)]
-    unsafe fn check_block(p: *const u8, i: isize, q: __m256i) -> Option<usize> {
+    unsafe fn check_block(p: *const u8, i: isize, q: __m256i, bytes288: bool) -> Option<usize> {
         let j = i;
         let loadcmp = |o| {
             let x = _mm256_loadu_si256(p.offset(j + o) as *const __m256i);
@@ -754,6 +793,11 @@ pub mod avx2 {
         let x5 = loadcmp(160);
         let x6 = loadcmp(192);
         let x7 = loadcmp(224);
+        let x8 = if bytes288 {
+            loadcmp(256)
+        } else {
+            _mm256_setzero_si256()
+        };
 
         // LLVM will optimize this sequence to fewer instructions than written
         let sum_01_x9 = _mm256_or_si256(x0, x1);
@@ -766,6 +810,7 @@ pub mod avx2 {
         let sum_03_x13 = _mm256_or_si256(sum_01_x13, sum_23_x10);
         let sum_05_x13 = _mm256_or_si256(sum_03_x13, sum_45_x11);
         let sum_07_x13 = _mm256_or_si256(sum_05_x13, sum_67_x12);
+        let sum_08_x13 = _mm256_or_si256(sum_07_x13, x8); // bytes288
 
         // Just making it it clear we're done with these
         drop(sum_init_x13);
@@ -775,7 +820,12 @@ pub mod avx2 {
 
         // Seems to be slightly faster than vptest, though
         // it uses one more instruction
-        let sum = _mm256_movemask_epi8(sum_07_x13);
+        let sum = if bytes288 {
+            _mm256_movemask_epi8(sum_08_x13)
+        } else {
+            _mm256_movemask_epi8(sum_07_x13)
+        };
+
         if sum == 0 {
             return None
         }
@@ -786,100 +836,18 @@ pub mod avx2 {
             .or_else(|| check_match(i + 128, sum_45_x11, x4, x5, false))
             .or_else(|| check_match(i + 192, sum_67_x12, x6, x7, true));
 
+        let offset = if bytes288 {
+            offset.or_else(|| {
+                let matches = _mm256_movemask_epi8(x8);
+                debug_assert!(matches != 0);
+                off(i + 256, matches)
+            })
+        } else {
+            offset
+        };
+
         debug_assert!(offset.is_some());
         return offset;
-    }
-
-    #[inline(never)]
-    #[target_feature(enable = "avx2")]
-    unsafe fn memchr_avx2_288(needle: u8, haystack: &[u8]) -> Option<usize> {
-        debug_assert!(haystack.len() >= 256);
-
-        let p: *const u8 = haystack.as_ptr();
-        let len = haystack.len() as isize;
-        debug_assert!(haystack.len() <= isize::max_value() as usize);
-
-        let mut i = 0;
-        let q_x15 = _mm256_set1_epi8(needle as i8);
-
-        let len_minus = len - 288;
-
-        while i <= len_minus {
-            let j = i;
-            let loadcmp = |o| {
-                let x = _mm256_loadu_si256(p.offset(j + o) as *const __m256i);
-                let x = _mm256_cmpeq_epi8(x, q_x15);
-                x
-            };
-
-            let x0 = loadcmp(0);
-            let x1 = loadcmp(32);
-            let x2 = loadcmp(64);
-            let x3 = loadcmp(96);
-            let x4 = loadcmp(128);
-            let x5 = loadcmp(160);
-            let x6 = loadcmp(192);
-            let x7 = loadcmp(224);
-            let x8 = loadcmp(256);
-
-            // LLVM will optimize this sequence to fewer instructions than written
-            let sum_01_x9 = _mm256_or_si256(x0, x1);
-            let sum_23_x10 = _mm256_or_si256(x2, x3);
-            let sum_45_x11 = _mm256_or_si256(x4, x5);
-            let sum_67_x12 = _mm256_or_si256(x6, x7);
-
-            let sum_init_x13 = _mm256_setzero_si256();
-            let sum_01_x13 = _mm256_or_si256(sum_init_x13, sum_01_x9);
-            let sum_03_x13 = _mm256_or_si256(sum_01_x13, sum_23_x10);
-            let sum_05_x13 = _mm256_or_si256(sum_03_x13, sum_45_x11);
-            let sum_07_x13 = _mm256_or_si256(sum_05_x13, sum_67_x12);
-            let sum_08_x13 = _mm256_or_si256(sum_07_x13, x8);
-
-            // Just making it it clear we're done with these
-            drop(sum_init_x13);
-            drop(sum_01_x13);
-            drop(sum_03_x13);
-            drop(sum_05_x13);
-            drop(sum_07_x13);
-
-            // Seems to be slightly faster than vptest, though
-            // it uses one more instruction
-            let sum = _mm256_movemask_epi8(sum_08_x13);
-            if sum == 0 {
-                i += 288;
-                continue;
-            }
-
-            let offset = None
-                .or_else(|| check_match(i + 0, sum_01_x9, x0, x1, false))
-                .or_else(|| check_match(i + 64, sum_23_x10, x2, x3, false))
-                .or_else(|| check_match(i + 128, sum_45_x11, x4, x5, false))
-                .or_else(|| check_match(i + 192, sum_67_x12, x6, x7, false))
-                .or_else(|| {
-                    let matches = _mm256_movemask_epi8(x8);
-                    debug_assert!(matches != 0);
-                    off(i + 256, matches)
-                });
-
-            debug_assert!(offset.is_some());
-            return offset;
-        }
-
-        // TODO try calling memchr_avx2 recursively to hit the
-        // jump table into the specialized functions
-
-        let len_minus = len - 32;
-        while i <= len_minus  {
-            if let Some(r) = cmp(q_x15, p, i) {
-                return Some(r);
-            }
-
-            i += 32;
-        }
-
-        debug_assert!(len - i < 32);
-
-        do_tail(needle, p, len, i, q_x15)
     }
 
     #[inline(always)]
