@@ -24,7 +24,7 @@ use_std = ["libc", "libc/use_std"]
 
 tail_page_ub = []
 avx2_288_opt = []
-use_unstable_intrinsics = []
+unstable_intrinsics = []
 
 [dependencies]
 libc = { version = "0.2.18", default-features = false, optional = true }
