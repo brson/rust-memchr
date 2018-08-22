@@ -467,6 +467,8 @@ use intr::*;
 // TODO: Note that some avx2 instructions impose a cpu
 // state transition penalty of some kind, but that
 // maybe these don't? (float vs int?)
+//
+// ideas: https://gms.tf/stdfind-and-memchr-optimizations.html
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[allow(missing_docs)]
