@@ -541,20 +541,20 @@ pub mod avx2 {
         // FIXME: Why must this be true?
         debug_assert!(haystack.len() <= isize::max_value() as usize);
 
-        if cfg!(feature = "avx2_288_opt") {
+        if cfg!(not(feature = "avx2_288_opt")) {
+            return memchr_avx2_ge256_impl(needle, haystack);
+        } else {
             if likely(haystack.len() >= 288) {
-                return memchr_avx2_288(needle, haystack);
+                return memchr_avx2_ge288(needle, haystack);
             } else {
                 return memchr_avx2_lt288(needle, haystack);
             }
-        } else {
-            return memchr_avx2_256(needle, haystack);
         }
     }
 
     #[inline(never)]
     #[target_feature(enable = "avx2")]
-    unsafe fn memchr_avx2_256(needle: u8, haystack: &[u8]) -> Option<usize> {
+    unsafe fn memchr_avx2_ge256_impl(needle: u8, haystack: &[u8]) -> Option<usize> {
         debug_assert!(haystack.len() >= 256);
 
         let p: *const u8 = haystack.as_ptr();
@@ -591,7 +591,7 @@ pub mod avx2 {
 
     #[inline(never)]
     #[target_feature(enable = "avx2")]
-    unsafe fn memchr_avx2_288(needle: u8, haystack: &[u8]) -> Option<usize> {
+    unsafe fn memchr_avx2_ge288(needle: u8, haystack: &[u8]) -> Option<usize> {
         debug_assert!(haystack.len() >= 256);
 
         let p: *const u8 = haystack.as_ptr();
