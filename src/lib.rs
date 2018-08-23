@@ -562,8 +562,8 @@ pub mod avx2 {
         let mut i = 0;
         let q_x15 = _mm256_set1_epi8(needle as i8);
 
-        let len_minus = len - 288;
-
+        debug_assert!(len >= 256);
+        let len_minus = len - 256;
         while i <= len_minus {
             if let Some(r) = check_block(p, i, q_x15, false) {
                 return Some(r);
@@ -574,6 +574,7 @@ pub mod avx2 {
         // TODO try calling memchr_avx2 recursively to hit the
         // jump table into the specialized functions
 
+        debug_assert!(len >= 32);
         let len_minus = len - 32;
         while i <= len_minus  {
             if let Some(r) = cmp(q_x15, p, i) {
@@ -590,7 +591,7 @@ pub mod avx2 {
 
     #[inline(always)]
     unsafe fn memchr_avx2_ge288(needle: u8, haystack: &[u8]) -> Option<usize> {
-        debug_assert!(haystack.len() >= 256);
+        debug_assert!(haystack.len() >= 288);
 
         let p: *const u8 = haystack.as_ptr();
         let len = haystack.len() as isize;
@@ -598,8 +599,8 @@ pub mod avx2 {
         let mut i = 0;
         let q_x15 = _mm256_set1_epi8(needle as i8);
 
+        debug_assert!(len >= 288);
         let len_minus = len - 288;
-
         while i <= len_minus {
             if let Some(r) = check_block(p, i, q_x15, true) {
                 return Some(r);
@@ -611,6 +612,7 @@ pub mod avx2 {
         // TODO try calling memchr_avx2 recursively to hit the
         // jump table into the specialized functions
 
+        debug_assert!(len >= 32);
         let len_minus = len - 32;
         while i <= len_minus  {
             if let Some(r) = cmp(q_x15, p, i) {
@@ -869,8 +871,9 @@ pub mod avx2 {
         }
 
         let mut i = 64;
-        let len_minus = len - 32;
 
+        debug_assert!(len >= 32);
+        let len_minus = len - 32;
         while i <= len_minus {
             if let Some(r) = cmp(q, p, i) {
                 return Some(r);
