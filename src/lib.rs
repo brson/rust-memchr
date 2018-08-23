@@ -571,22 +571,7 @@ pub mod avx2 {
             i = i + 256;
         }
 
-        // TODO try calling memchr_avx2 recursively to hit the
-        // jump table into the specialized functions
-
-        debug_assert!(len >= 32);
-        let len_minus = len - 32;
-        while i <= len_minus  {
-            if let Some(r) = cmp(q_x15, p, i) {
-                return Some(r);
-            }
-
-            i += 32;
-        }
-
-        debug_assert!(len - i < 32);
-
-        do_tail_lt32(needle, p, len, i, q_x15)
+        do_tail_ge32(needle, p, len, i, q_x15)
     }
 
     #[inline(always)]
@@ -609,22 +594,7 @@ pub mod avx2 {
             i += 288;
         }
 
-        // TODO try calling memchr_avx2 recursively to hit the
-        // jump table into the specialized functions
-
-        debug_assert!(len >= 32);
-        let len_minus = len - 32;
-        while i <= len_minus  {
-            if let Some(r) = cmp(q_x15, p, i) {
-                return Some(r);
-            }
-
-            i += 32;
-        }
-
-        debug_assert!(len - i < 32);
-
-        do_tail_lt32(needle, p, len, i, q_x15)
+        do_tail_ge32(needle, p, len, i, q_x15)
     }
 
     #[inline(always)]
@@ -870,14 +840,30 @@ pub mod avx2 {
             return Some(r);
         }
 
-        let mut i = 64;
+        let i = 64;
+
+        do_tail_ge32(needle, p, len, i, q)
+    }
+
+
+    //// Tail processing ////
+
+
+    #[inline(always)]
+    unsafe fn do_tail_ge32(needle: u8, p: *const u8, len: isize,
+                           i: isize, q: __m256i) -> Option<usize> {
+        // TODO try calling memchr_avx2 recursively to hit the
+        // jump table into the specialized functions
+
+        let mut i = i;
 
         debug_assert!(len >= 32);
         let len_minus = len - 32;
-        while i <= len_minus {
+        while i <= len_minus  {
             if let Some(r) = cmp(q, p, i) {
                 return Some(r);
             }
+
             i += 32;
         }
 
@@ -885,10 +871,6 @@ pub mod avx2 {
 
         do_tail_lt32(needle, p, len, i, q)
     }
-
-
-    //// Tail processing ////
-
 
     #[inline(always)]
     unsafe fn do_tail_lt32(needle: u8, p: *const u8, len: isize,
