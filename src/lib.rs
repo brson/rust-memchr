@@ -547,7 +547,7 @@ pub mod avx2 {
             if likely(haystack.len() >= 288) {
                 return memchr_avx2_ge288(needle, haystack);
             } else {
-                return memchr_avx2_lt288(needle, haystack);
+                return memchr_avx2_ge256_lt288(needle, haystack);
             }
         }
     }
@@ -626,7 +626,7 @@ pub mod avx2 {
     }
 
     #[inline(always)]
-    unsafe fn memchr_avx2_lt288(needle: u8, haystack: &[u8]) -> Option<usize> {
+    unsafe fn memchr_avx2_ge256_lt288(needle: u8, haystack: &[u8]) -> Option<usize> {
         debug_assert!(haystack.len() >= 256);
         debug_assert!(haystack.len() < 288);
 
