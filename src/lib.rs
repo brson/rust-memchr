@@ -706,7 +706,7 @@ pub mod avx2 {
             .or_else(|| check_match(i + 0, sum_01_x9, x0, x1, false))
             .or_else(|| check_match(i + 64, sum_23_x10, x2, x3, false))
             .or_else(|| check_match(i + 128, sum_45_x11, x4, x5, false))
-            .or_else(|| check_match(i + 192, sum_67_x12, x6, x7, true));
+            .or_else(|| check_match(i + 192, sum_67_x12, x6, x7, !bytes288));
 
         let offset = if bytes288 {
             offset.or_else(|| {
