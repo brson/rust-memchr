@@ -47,7 +47,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack).is_none()));
+                        assert_eq!(black_box($memchr(needle, &haystack)), None);
                     }
                 });
                 b.bytes = haystack.len() as u64;
@@ -209,7 +209,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack)).is_none());
+                        assert_eq!(black_box($memchr(needle, &haystack)), None);
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -232,7 +232,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack)).is_none());
+                        assert_eq!(black_box($memchr(needle, &haystack)), None);
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -334,7 +334,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack)).is_none());
+                        assert_eq!(black_box($memchr(needle, &haystack)), None);
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -574,7 +574,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack).is_none()));
+                        assert_eq!(black_box($memchr(needle, &haystack)), None);
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -911,7 +911,7 @@ macro_rules! memchr_benches {
                 let haystack = bench_data_big();
                 let needle = b'a';
                 b.iter(|| {
-                    assert!(black_box($memchr(needle, &haystack).is_none()));
+                    assert_eq!(black_box($memchr(needle, &haystack)), None);
                 });
                 b.bytes = haystack.len() as u64;
             }
@@ -923,7 +923,7 @@ macro_rules! memchr_benches {
                 let haystack = bench_data_realbig();
                 let needle = b'a';
                 b.iter(|| {
-                    assert!(black_box($memchr(needle, &haystack).is_none()));
+                    assert_eq!(black_box($memchr(needle, &haystack)), None);
                 });
                 b.bytes = haystack.len() as u64;
             }
