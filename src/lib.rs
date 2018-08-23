@@ -560,18 +560,18 @@ pub mod avx2 {
         let len = haystack.len() as isize;
 
         let mut i = 0;
-        let q_x15 = _mm256_set1_epi8(needle as i8);
+        let q = _mm256_set1_epi8(needle as i8);
 
         debug_assert!(len >= 256);
         let len_minus = len - 256;
         while i <= len_minus {
-            if let Some(r) = check_block(p, i, q_x15, false) {
+            if let Some(r) = check_block(p, i, q, false) {
                 return Some(r);
             }
             i = i + 256;
         }
 
-        do_tail_ge32(needle, p, len, i, q_x15)
+        do_tail_ge32(needle, p, len, i, q)
     }
 
     #[inline(always)]
@@ -582,19 +582,19 @@ pub mod avx2 {
         let len = haystack.len() as isize;
 
         let mut i = 0;
-        let q_x15 = _mm256_set1_epi8(needle as i8);
+        let q = _mm256_set1_epi8(needle as i8);
 
         debug_assert!(len >= 288);
         let len_minus = len - 288;
         while i <= len_minus {
-            if let Some(r) = check_block(p, i, q_x15, true) {
+            if let Some(r) = check_block(p, i, q, true) {
                 return Some(r);
             }
 
             i += 288;
         }
 
-        do_tail_ge32(needle, p, len, i, q_x15)
+        do_tail_ge32(needle, p, len, i, q)
     }
 
     #[inline(always)]
@@ -607,9 +607,9 @@ pub mod avx2 {
         debug_assert!(haystack.len() <= isize::max_value() as usize);
 
         let mut i = 0;
-        let q_x15 = _mm256_set1_epi8(needle as i8);
+        let q = _mm256_set1_epi8(needle as i8);
 
-        if let Some(r) = check_block(p, i, q_x15, false) {
+        if let Some(r) = check_block(p, i, q, false) {
             return Some(r);
         }
 
@@ -617,15 +617,18 @@ pub mod avx2 {
 
         debug_assert!(len - i < 32);
 
-        do_tail_lt32(needle, p, len, i, q_x15)
+        do_tail_lt32(needle, p, len, i, q)
     }
 
     #[inline(always)]
     unsafe fn check_block(p: *const u8, i: isize, q: __m256i, bytes288: bool) -> Option<usize> {
+
+        let q_x15 = q;
+        
         let j = i;
         let loadcmp = |o| {
             let x = _mm256_loadu_si256(p.offset(j + o) as *const __m256i);
-            let x = _mm256_cmpeq_epi8(x, q);
+            let x = _mm256_cmpeq_epi8(x, q_x15);
             x
         };
 
