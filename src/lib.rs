@@ -552,8 +552,7 @@ pub mod avx2 {
         }
     }
 
-    #[inline(never)]
-    #[target_feature(enable = "avx2")]
+    #[inline(always)]
     unsafe fn memchr_avx2_ge256_impl(needle: u8, haystack: &[u8]) -> Option<usize> {
         debug_assert!(haystack.len() >= 256);
 
@@ -589,8 +588,7 @@ pub mod avx2 {
         do_tail_lt32(needle, p, len, i, q_x15)
     }
 
-    #[inline(never)]
-    #[target_feature(enable = "avx2")]
+    #[inline(always)]
     unsafe fn memchr_avx2_ge288(needle: u8, haystack: &[u8]) -> Option<usize> {
         debug_assert!(haystack.len() >= 256);
 
@@ -627,7 +625,6 @@ pub mod avx2 {
         do_tail_lt32(needle, p, len, i, q_x15)
     }
 
-    // Like avx2_256 without the loop
     #[inline(always)]
     unsafe fn memchr_avx2_lt288(needle: u8, haystack: &[u8]) -> Option<usize> {
         debug_assert!(haystack.len() >= 256);
@@ -1130,7 +1127,6 @@ pub mod avx2 {
         None
     }
 
-    #[allow(unused)]
     #[inline(always)]
     unsafe fn cmp_16(q: __m128i, p: *const u8, i: isize) -> Option<usize> {
         let x = _mm_loadu_si128(p.offset(i) as *const __m128i);
