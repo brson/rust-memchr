@@ -65,7 +65,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(0));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -83,7 +83,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(1)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(1));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -101,7 +101,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(2)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(2));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -119,7 +119,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(3)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(3));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -137,7 +137,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(4)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(4));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -155,7 +155,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(6)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(6));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -173,7 +173,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(0));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -191,7 +191,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(7)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(7));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -209,7 +209,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack).is_none()));
+                        assert!(black_box($memchr(needle, &haystack)).is_none());
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -232,7 +232,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack).is_none()));
+                        assert!(black_box($memchr(needle, &haystack)).is_none());
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -255,7 +255,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(14)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(14));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -273,7 +273,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(0));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -291,7 +291,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(15)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(15));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -311,7 +311,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(8)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(8));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -334,7 +334,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack).is_none()));
+                        assert!(black_box($memchr(needle, &haystack)).is_none());
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -357,7 +357,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(15)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(15));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -382,7 +382,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(15)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(15));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -400,7 +400,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(0));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -418,7 +418,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(16)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(16));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -436,7 +436,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(30)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(30));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -459,7 +459,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(30)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(30));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -484,7 +484,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(30)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(30));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -502,7 +502,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(0));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -520,7 +520,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(31)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(31));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -538,7 +538,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(0));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -556,7 +556,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(32)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(32));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -592,7 +592,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(0));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -610,7 +610,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(63)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(63));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -628,7 +628,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(0));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -646,7 +646,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(64)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(64));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -664,7 +664,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(0));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -682,7 +682,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(126)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(126));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -700,7 +700,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(0));
                     }
                 });
                 b.bytes = 100;
@@ -718,7 +718,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(64)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(64));
                     }
                 });
                 b.bytes = 100;
@@ -736,7 +736,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(127)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(127));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -754,7 +754,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(0));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -772,7 +772,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(254)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(254));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -790,7 +790,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(0));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -808,7 +808,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(255)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(255));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -826,7 +826,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(0));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -844,7 +844,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(286)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(286));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -862,7 +862,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(0)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(0));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -880,7 +880,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(287)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(287));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -898,7 +898,7 @@ macro_rules! memchr_benches {
                 let needle = b'a';
                 b.iter(|| {
                     for _ in 0..100 {
-                        assert!(black_box($memchr(needle, &haystack) == Some(319)));
+                        assert_eq!(black_box($memchr(needle, &haystack)), Some(319));
                     }
                 });
                 b.bytes = haystack.len() as u64 * 100;
@@ -988,54 +988,54 @@ macro_rules! memchr_benches {
                 let haystack_realbig = bench_data_realbig();
 
                 b.iter(|| {
-                    assert!(black_box($memchr(needle, &haystack_000_empty).is_none()));
-                    assert!(black_box($memchr(needle, &haystack_001_found) == Some(0)));
-                    assert!(black_box($memchr(needle, &haystack_002_found) == Some(1)));
-                    assert!(black_box($memchr(needle, &haystack_003_found) == Some(2)));
-                    assert!(black_box($memchr(needle, &haystack_004_found) == Some(3)));
-                    assert!(black_box($memchr(needle, &haystack_005_found) == Some(4)));
-                    assert!(black_box($memchr(needle, &haystack_007_found) == Some(6)));
-                    assert!(black_box($memchr(needle, &haystack_008_found_first) == Some(0)));
-                    assert!(black_box($memchr(needle, &haystack_008_found_last) == Some(7)));
-                    assert!(black_box($memchr(needle, &haystack_015_aligned_notfound).is_none()));
-                    assert!(black_box($memchr(needle, &haystack_015_overaligned_1_notfound).is_none()));
-                    assert!(black_box($memchr(needle, &haystack_015_overaligned_1_found_14) == Some(14)));
-                    assert!(black_box($memchr(needle, &haystack_016_found_first) == Some(0)));
-                    assert!(black_box($memchr(needle, &haystack_016_found_last) == Some(15)));
-                    assert!(black_box($memchr(needle, &haystack_016_aligned_found_8) == Some(8)));
-                    assert!(black_box($memchr(needle, &haystack_016_overaligned_1_notfound).is_none()));
-                    assert!(black_box($memchr(needle, &haystack_016_overaligned_1_found_15) == Some(15)));
-                    assert!(black_box($memchr(needle, &haystack_016_overaligned_8_found_15) == Some(15)));
-                    assert!(black_box($memchr(needle, &haystack_017_found_first) == Some(0)));
-                    assert!(black_box($memchr(needle, &haystack_017_found_last) == Some(16)));
-                    assert!(black_box($memchr(needle, &haystack_031_aligned_found_30) == Some(30)));
-                    assert!(black_box($memchr(needle, &haystack_031_overaligned_1_found_30) == Some(30)));
-                    assert!(black_box($memchr(needle, &haystack_031_overaligned_31_found_30) == Some(30)));
-                    assert!(black_box($memchr(needle, &haystack_032_found_first) == Some(0)));
-                    assert!(black_box($memchr(needle, &haystack_032_found_last) == Some(31)));
-                    assert!(black_box($memchr(needle, &haystack_033_found_first) == Some(0)));
-                    assert!(black_box($memchr(needle, &haystack_033_found_last) == Some(32)));
-                    assert!(black_box($memchr(needle, &haystack_063_aligned_notfound).is_none()));
-                    assert!(black_box($memchr(needle, &haystack_064_found_first) == Some(0)));
-                    assert!(black_box($memchr(needle, &haystack_064_found_last) == Some(63)));
-                    assert!(black_box($memchr(needle, &haystack_065_found_first) == Some(0)));
-                    assert!(black_box($memchr(needle, &haystack_065_found_last) == Some(64)));
-                    assert!(black_box($memchr(needle, &haystack_127_found_first) == Some(0)));
-                    assert!(black_box($memchr(needle, &haystack_127_found_last) == Some(126)));
-                    assert!(black_box($memchr(needle, &haystack_128_found_first) == Some(0)));
-                    assert!(black_box($memchr(needle, &haystack_128_found_64) == Some(64)));
-                    assert!(black_box($memchr(needle, &haystack_128_found_last) == Some(127)));
-                    assert!(black_box($memchr(needle, &haystack_255_found_first) == Some(0)));
-                    assert!(black_box($memchr(needle, &haystack_255_found_last) == Some(254)));
-                    assert!(black_box($memchr(needle, &haystack_256_found_first) == Some(0)));
-                    assert!(black_box($memchr(needle, &haystack_256_found_last) == Some(255)));
-                    assert!(black_box($memchr(needle, &haystack_287_found_first) == Some(0)));
-                    assert!(black_box($memchr(needle, &haystack_287_found_last) == Some(286)));
-                    assert!(black_box($memchr(needle, &haystack_288_found_first) == Some(0)));
-                    assert!(black_box($memchr(needle, &haystack_288_found_last) == Some(287)));
-                    assert!(black_box($memchr(needle, &haystack_320_found_last) == Some(319)));
-                    assert!(black_box($memchr(needle, &haystack_big).is_none()));
-                    assert!(black_box($memchr(needle, &haystack_realbig).is_none()));
+                    assert_eq!(black_box($memchr(needle, &haystack_000_empty)), None);
+                    assert_eq!(black_box($memchr(needle, &haystack_001_found)), Some(0));
+                    assert_eq!(black_box($memchr(needle, &haystack_002_found)), Some(1));
+                    assert_eq!(black_box($memchr(needle, &haystack_003_found)), Some(2));
+                    assert_eq!(black_box($memchr(needle, &haystack_004_found)), Some(3));
+                    assert_eq!(black_box($memchr(needle, &haystack_005_found)), Some(4));
+                    assert_eq!(black_box($memchr(needle, &haystack_007_found)), Some(6));
+                    assert_eq!(black_box($memchr(needle, &haystack_008_found_first)), Some(0));
+                    assert_eq!(black_box($memchr(needle, &haystack_008_found_last)), Some(7));
+                    assert_eq!(black_box($memchr(needle, &haystack_015_aligned_notfound)), None);
+                    assert_eq!(black_box($memchr(needle, &haystack_015_overaligned_1_notfound)), None);
+                    assert_eq!(black_box($memchr(needle, &haystack_015_overaligned_1_found_14)), Some(14));
+                    assert_eq!(black_box($memchr(needle, &haystack_016_found_first)), Some(0));
+                    assert_eq!(black_box($memchr(needle, &haystack_016_found_last)), Some(15));
+                    assert_eq!(black_box($memchr(needle, &haystack_016_aligned_found_8)), Some(8));
+                    assert_eq!(black_box($memchr(needle, &haystack_016_overaligned_1_notfound)), None);
+                    assert_eq!(black_box($memchr(needle, &haystack_016_overaligned_1_found_15)), Some(15));
+                    assert_eq!(black_box($memchr(needle, &haystack_016_overaligned_8_found_15)), Some(15));
+                    assert_eq!(black_box($memchr(needle, &haystack_017_found_first)), Some(0));
+                    assert_eq!(black_box($memchr(needle, &haystack_017_found_last)), Some(16));
+                    assert_eq!(black_box($memchr(needle, &haystack_031_aligned_found_30)), Some(30));
+                    assert_eq!(black_box($memchr(needle, &haystack_031_overaligned_1_found_30)), Some(30));
+                    assert_eq!(black_box($memchr(needle, &haystack_031_overaligned_31_found_30)), Some(30));
+                    assert_eq!(black_box($memchr(needle, &haystack_032_found_first)), Some(0));
+                    assert_eq!(black_box($memchr(needle, &haystack_032_found_last)), Some(31));
+                    assert_eq!(black_box($memchr(needle, &haystack_033_found_first)), Some(0));
+                    assert_eq!(black_box($memchr(needle, &haystack_033_found_last)), Some(32));
+                    assert_eq!(black_box($memchr(needle, &haystack_063_aligned_notfound)), None);
+                    assert_eq!(black_box($memchr(needle, &haystack_064_found_first)), Some(0));
+                    assert_eq!(black_box($memchr(needle, &haystack_064_found_last)), Some(63));
+                    assert_eq!(black_box($memchr(needle, &haystack_065_found_first)), Some(0));
+                    assert_eq!(black_box($memchr(needle, &haystack_065_found_last)), Some(64));
+                    assert_eq!(black_box($memchr(needle, &haystack_127_found_first)), Some(0));
+                    assert_eq!(black_box($memchr(needle, &haystack_127_found_last)), Some(126));
+                    assert_eq!(black_box($memchr(needle, &haystack_128_found_first)), Some(0));
+                    assert_eq!(black_box($memchr(needle, &haystack_128_found_64)), Some(64));
+                    assert_eq!(black_box($memchr(needle, &haystack_128_found_last)), Some(127));
+                    assert_eq!(black_box($memchr(needle, &haystack_255_found_first)), Some(0));
+                    assert_eq!(black_box($memchr(needle, &haystack_255_found_last)), Some(254));
+                    assert_eq!(black_box($memchr(needle, &haystack_256_found_first)), Some(0));
+                    assert_eq!(black_box($memchr(needle, &haystack_256_found_last)), Some(255));
+                    assert_eq!(black_box($memchr(needle, &haystack_287_found_first)), Some(0));
+                    assert_eq!(black_box($memchr(needle, &haystack_287_found_last)), Some(286));
+                    assert_eq!(black_box($memchr(needle, &haystack_288_found_first)), Some(0));
+                    assert_eq!(black_box($memchr(needle, &haystack_288_found_last)), Some(287));
+                    assert_eq!(black_box($memchr(needle, &haystack_320_found_last)), Some(319));
+                    assert_eq!(black_box($memchr(needle, &haystack_big)), None);
+                    assert_eq!(black_box($memchr(needle, &haystack_realbig)), None);
                 });
             }
         }
