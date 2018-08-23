@@ -488,6 +488,7 @@ pub mod avx2 {
     // large qc tests
 
     // TODO
+    // add head-oriented routines
     // specialize for 32 bytes
     // specialize for 64 bytes
     // try replacing movemasks with vptest/testnz
