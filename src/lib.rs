@@ -735,6 +735,7 @@ pub mod avx2 {
 
     //// Jump table specializations ////
 
+
     #[target_feature(enable = "avx2")]
     unsafe fn memchr_avx2_0(_needle: u8, haystack: &[u8]) -> Option<usize> {
         debug_assert_eq!(haystack.len(), 0);
