@@ -511,7 +511,7 @@ pub mod avx2 {
 
     // NB: We don't want to inline this because then the optimizer won't be able
     // to turn the tail call into a jump table. Effectively, the other,
-    // non-inline avx functions are inlined into this one. TODO: verify this.
+    // non-inline avx functions are inlined into this one.
     #[inline(never)]
     unsafe fn memchr_avx2(needle: u8, haystack: &[u8]) -> Option<usize> {
         // FIXME: assembly for this is reloading dil into edi unnecessarily...
@@ -857,14 +857,15 @@ pub mod avx2 {
 
         let mut i = i;
 
-        debug_assert!(len >= 32);
-        let len_minus = len - 32;
-        while i <= len_minus  {
-            if let Some(r) = cmp(q, p, i) {
-                return Some(r);
+        // TODO unfortunate branch
+        if len >= 32 {
+            let len_minus = len - 32;
+            while i <= len_minus  {
+                if let Some(r) = cmp(q, p, i) {
+                    return Some(r);
+                }
+                i += 32;
             }
-
-            i += 32;
         }
 
         debug_assert!(len - i < 32);
