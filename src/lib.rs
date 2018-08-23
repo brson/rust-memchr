@@ -798,7 +798,7 @@ pub mod avx2 {
     }
 
     #[target_feature(enable = "avx2")]
-    unsafe fn memchr_avx2_lt16(needle: u8, haystack: &[u8]) -> Option<usize> {
+    unsafe fn memchr_avx2_ge4_lt16(needle: u8, haystack: &[u8]) -> Option<usize> {
         debug_assert!(haystack.len() >= 4);
         debug_assert!(haystack.len() < 16);
 
@@ -811,8 +811,7 @@ pub mod avx2 {
 
     #[target_feature(enable = "avx2")]
     unsafe fn memchr_avx2_eq16(needle: u8, haystack: &[u8]) -> Option<usize> {
-        debug_assert!(haystack.len() >= 4);
-        debug_assert!(haystack.len() <= 16);
+        debug_assert!(haystack.len() == 16);
 
         let p: *const u8 = haystack.as_ptr();
         let q = _mm_set1_epi8(needle as i8);
@@ -821,7 +820,7 @@ pub mod avx2 {
     }
 
     #[target_feature(enable = "avx2")]
-    unsafe fn memchr_avx2_lt32(needle: u8, haystack: &[u8]) -> Option<usize> {
+    unsafe fn memchr_avx2_gt16_lt32(needle: u8, haystack: &[u8]) -> Option<usize> {
         debug_assert!(haystack.len() > 16);
         debug_assert!(haystack.len() < 32);
 
@@ -838,7 +837,7 @@ pub mod avx2 {
     }
 
     #[target_feature(enable = "avx2")]
-    unsafe fn memchr_avx2_lt64(needle: u8, haystack: &[u8]) -> Option<usize> {
+    unsafe fn memchr_avx2_ge32_lt64(needle: u8, haystack: &[u8]) -> Option<usize> {
         debug_assert!(haystack.len() >= 32);
         debug_assert!(haystack.len() < 64);
 
@@ -854,7 +853,7 @@ pub mod avx2 {
     }
 
     #[target_feature(enable = "avx2")]
-    unsafe fn memchr_avx2_lt256(needle: u8, haystack: &[u8]) -> Option<usize> {
+    unsafe fn memchr_avx2_ge64_lt256(needle: u8, haystack: &[u8]) -> Option<usize> {
         debug_assert!(haystack.len() >= 64);
         debug_assert!(haystack.len() < 256);
 
