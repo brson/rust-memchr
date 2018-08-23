@@ -628,6 +628,8 @@ pub mod avx2 {
         
         let j = i;
         let loadcmp = |o| {
+            // TODO: Considering whether issuing all the loads together
+            // before cmpeq affects performance
             let x = _mm256_loadu_si256(p.offset(j + o) as *const __m256i);
             let x = _mm256_cmpeq_epi8(x, q_x15);
             x
@@ -856,6 +858,9 @@ pub mod avx2 {
     #[inline(always)]
     unsafe fn do_tail_ge32(needle: u8, p: *const u8, len: isize,
                            i: isize, q: __m256i) -> Option<usize> {
+        let rem = len - i;
+        debug_assert!(rem >= 32);
+
         // TODO try calling memchr_avx2 recursively to hit the
         // jump table into the specialized functions
 
