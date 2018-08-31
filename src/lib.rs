@@ -488,6 +488,7 @@ pub mod avx2 {
     // large qc tests
 
     // TODO
+    // hit the jump table again in do_tail
     // add head-oriented routines
     // specialize for 32 bytes
     // specialize for 64 bytes
