@@ -469,6 +469,10 @@ use intr::*;
 // maybe these don't? (float vs int?)
 //
 // ideas: https://gms.tf/stdfind-and-memchr-optimizations.html
+//
+// cargo +nightly bench --features unstable_intrinsics | tee ../memchr-bench.txt
+// cargo benchcmp core_:: avx2:: ../memchr-bench.txt
+
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[allow(missing_docs)]
@@ -498,10 +502,8 @@ pub mod avx2 {
     // try a core algorithm that uses shifting to compose a 256-bit mask
     // can anything useful be done with permute + bmi2 pext?
     //   - https://stackoverflow.com/questions/36932240/avx2-what-is-the-most-efficient-way-to-pack-left-based-on-a-mask
-    // extract intrinsics into wrappers than can be disabled
     // check perf of max_epu vs or
     // ymm14 is unused?!
-    // compare with libcore
     // write a naive simd version - compare with libcore
 
     #[inline(always)]
